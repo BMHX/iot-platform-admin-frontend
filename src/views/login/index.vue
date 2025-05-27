@@ -1,0 +1,161 @@
+<template>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-header">
+        <h2>物联网运营平台</h2>
+        <p>登录系统以管理您的IoT设备</p>
+      </div>
+      <el-form
+        :model="loginForm"
+        :rules="loginRules"
+        ref="loginFormRef"
+        class="login-form"
+        label-position="top"
+      >
+        <el-form-item label="用户名" prop="username">
+          <el-input
+            v-model="loginForm.username"
+            placeholder="请输入用户名"
+            prefix-icon="User"
+          />
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <el-input
+            v-model="loginForm.password"
+            type="password"
+            placeholder="请输入密码"
+            prefix-icon="Lock"
+            @keyup.enter="handleLogin"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
+          <el-link type="primary" class="forgot-password" href="#">忘记密码?</el-link>
+        </el-form-item>
+        <el-form-item>
+          <el-button
+            type="primary"
+            :loading="loading"
+            class="login-button"
+            @click="handleLogin"
+          >登录</el-button>
+        </el-form-item>
+      </el-form>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { useUserStore } from '../../stores/user'
+
+const router = useRouter()
+const userStore = useUserStore()
+const loginFormRef = ref(null)
+const loading = ref(false)
+
+// 登录表单
+const loginForm = reactive({
+  username: 'admin',
+  password: '123456',
+  remember: false
+})
+
+// 表单验证规则
+const loginRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '用户名长度应为3-20个字符', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '密码长度应为6-20个字符', trigger: 'blur' }
+  ]
+}
+
+// 登录方法
+const handleLogin = () => {
+  if (!loginFormRef.value) return
+  
+  loginFormRef.value.validate((valid) => {
+    if (valid) {
+      loading.value = true
+      
+      // 模拟登录请求
+      setTimeout(() => {
+        if (loginForm.username === 'admin' && loginForm.password === '123456') {
+          // 登录成功
+          const token = 'mock_token_' + Date.now()
+          userStore.setToken(token)
+          
+          // 设置用户信息
+          userStore.setUserInfo({
+            username: loginForm.username,
+            avatar: '',
+            role: 'admin'
+          })
+          
+          ElMessage.success('登录成功')
+          router.push('/')
+        } else {
+          // 登录失败
+          ElMessage.error('用户名或密码错误')
+        }
+        
+        loading.value = false
+      }, 1000)
+    }
+  })
+}
+</script>
+
+<style scoped>
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f0f2f5;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjA1Ij48cGF0aCBkPSJNMjAgMGMxMS4wNDYgMCAyMCA4Ljk1NCAyMCAyMHMtOC45NTQgMjAtMjAgMjBTMCAzMS4wNDYgMCAyMCA4Ljk1NCAwIDIwIDB6Ii8+PC9nPjwvZz48L3N2Zz4=');
+  background-repeat: repeat;
+  background-position: center;
+}
+
+.login-box {
+  width: 400px;
+  padding: 40px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.login-header h2 {
+  font-size: 24px;
+  color: #303133;
+  margin-bottom: 10px;
+}
+
+.login-header p {
+  font-size: 14px;
+  color: #909399;
+}
+
+.login-form {
+  margin-top: 20px;
+}
+
+.login-button {
+  width: 100%;
+}
+
+.forgot-password {
+  float: right;
+}
+</style> 
