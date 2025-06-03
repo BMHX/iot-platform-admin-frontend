@@ -111,6 +111,22 @@
         <el-form-item label="权限标识" prop="permission">
           <el-input v-model="menuForm.permission" placeholder="请输入权限标识" />
         </el-form-item>
+        <el-form-item label="绑定权限" prop="permissionIds" v-if="menuForm.type !== '目录'">
+          <el-select
+            v-model="menuForm.permissionIds"
+            multiple
+            filterable
+            placeholder="请选择绑定的权限"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in permissionOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="图标" v-if="menuForm.type !== '按钮'">
           <el-select v-model="menuForm.icon" placeholder="请选择图标" clearable style="width: 100%">
             <el-option label="仪表盘" value="DataBoard" />
@@ -169,12 +185,34 @@ const menuForm = reactive({
   component: '',
   icon: '',
   permission: '',
+  permissionIds: [], // 绑定的权限ID列表
   type: '菜单',
   sort: 0,
   hidden: false,
   status: 'enabled',
   children: []
 })
+
+// 权限选项列表
+const permissionOptions = ref([
+  { id: '1', name: '系统管理-查看', code: 'system:view' },
+  { id: '2', name: '管理员管理-查看', code: 'system:admin:view' },
+  { id: '3', name: '管理员管理-添加', code: 'system:admin:add' },
+  { id: '4', name: '管理员管理-编辑', code: 'system:admin:edit' },
+  { id: '5', name: '管理员管理-删除', code: 'system:admin:delete' },
+  { id: '6', name: '权限管理-查看', code: 'system:permission:view' },
+  { id: '7', name: '权限管理-添加', code: 'system:permission:add' },
+  { id: '8', name: '菜单管理-查看', code: 'system:menu:view' },
+  { id: '9', name: '菜单管理-添加', code: 'system:menu:add' },
+  { id: '10', name: '菜单管理-编辑', code: 'system:menu:edit' },
+  { id: '11', name: '菜单管理-删除', code: 'system:menu:delete' },
+  { id: '12', name: '设备管理-查看', code: 'device:view' },
+  { id: '13', name: '设备管理-添加', code: 'device:add' },
+  { id: '14', name: '设备管理-编辑', code: 'device:edit' },
+  { id: '15', name: '设备管理-删除', code: 'device:delete' },
+  { id: '16', name: '统计管理-查看', code: 'statistics:view' },
+  { id: '17', name: '统计管理-导出', code: 'statistics:export' }
+])
 
 // 表单验证规则
 const rules = {
@@ -218,6 +256,7 @@ const getMenuList = () => {
         component: 'views/dashboard/index',
         icon: 'DataBoard',
         permission: 'dashboard',
+        permissionIds: [], // 绑定的权限ID列表
         type: '菜单',
         sort: 1,
         hidden: false,
@@ -232,6 +271,7 @@ const getMenuList = () => {
         component: 'views/devices/index',
         icon: 'Monitor',
         permission: 'device:view',
+        permissionIds: [], // 绑定的权限ID列表
         type: '菜单',
         sort: 2,
         hidden: false,
@@ -246,6 +286,7 @@ const getMenuList = () => {
         component: 'views/analysis/index',
         icon: 'DataAnalysis',
         permission: 'analysis:view',
+        permissionIds: [], // 绑定的权限ID列表
         type: '菜单',
         sort: 3,
         hidden: false,
@@ -260,6 +301,7 @@ const getMenuList = () => {
         component: 'views/alarms/index',
         icon: 'Alarm',
         permission: 'alarm:view',
+        permissionIds: [], // 绑定的权限ID列表
         type: '菜单',
         sort: 4,
         hidden: false,
@@ -274,6 +316,7 @@ const getMenuList = () => {
         component: '',
         icon: 'Setting',
         permission: 'system',
+        permissionIds: [], // 绑定的权限ID列表
         type: '目录',
         sort: 5,
         hidden: false,
@@ -287,6 +330,7 @@ const getMenuList = () => {
             component: 'views/users/index',
             icon: 'User',
             permission: 'user:view',
+            permissionIds: [], // 绑定的权限ID列表
             type: '菜单',
             sort: 1,
             hidden: false,
@@ -300,6 +344,7 @@ const getMenuList = () => {
                 component: '',
                 icon: '',
                 permission: 'user:add',
+                permissionIds: [], // 绑定的权限ID列表
                 type: '按钮',
                 sort: 1,
                 hidden: false,
@@ -314,6 +359,7 @@ const getMenuList = () => {
                 component: '',
                 icon: '',
                 permission: 'user:edit',
+                permissionIds: [], // 绑定的权限ID列表
                 type: '按钮',
                 sort: 2,
                 hidden: false,
@@ -328,6 +374,7 @@ const getMenuList = () => {
                 component: '',
                 icon: '',
                 permission: 'user:delete',
+                permissionIds: [], // 绑定的权限ID列表
                 type: '按钮',
                 sort: 3,
                 hidden: false,
@@ -344,6 +391,7 @@ const getMenuList = () => {
             component: 'views/roles/index',
             icon: 'User',
             permission: 'role:view',
+            permissionIds: [], // 绑定的权限ID列表
             type: '菜单',
             sort: 2,
             hidden: false,
@@ -358,6 +406,7 @@ const getMenuList = () => {
             component: 'views/menus/index',
             icon: 'Menu',
             permission: 'menu:view',
+            permissionIds: [], // 绑定的权限ID列表
             type: '菜单',
             sort: 3,
             hidden: false,
@@ -372,6 +421,7 @@ const getMenuList = () => {
             component: 'views/settings/index',
             icon: 'Setting',
             permission: 'settings:view',
+            permissionIds: [], // 绑定的权限ID列表
             type: '菜单',
             sort: 4,
             hidden: false,
@@ -435,6 +485,7 @@ const handleEdit = (row) => {
     component: row.component,
     icon: row.icon,
     permission: row.permission,
+    permissionIds: row.permissionIds || [], // 绑定的权限ID列表
     type: row.type,
     sort: row.sort,
     hidden: row.hidden,
@@ -513,6 +564,7 @@ const resetMenuForm = () => {
     component: '',
     icon: '',
     permission: '',
+    permissionIds: [], // 绑定的权限ID列表
     type: '菜单',
     sort: 0,
     hidden: false,
@@ -536,6 +588,7 @@ const submitMenuForm = () => {
           component: menuForm.component,
           icon: menuForm.icon,
           permission: menuForm.permission,
+          permissionIds: menuForm.permissionIds, // 绑定的权限ID列表
           type: menuForm.type,
           sort: menuForm.sort,
           hidden: menuForm.hidden,
@@ -592,6 +645,7 @@ const updateMenuRecursively = (list, formData) => {
         component: formData.component,
         icon: formData.icon,
         permission: formData.permission,
+        permissionIds: formData.permissionIds, // 绑定的权限ID列表
         type: formData.type,
         sort: formData.sort,
         hidden: formData.hidden,

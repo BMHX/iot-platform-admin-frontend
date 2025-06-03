@@ -45,7 +45,15 @@
           </template>
         </el-table-column>
         <el-table-column prop="lastActiveTime" label="最后活跃时间" width="180" />
-        <el-table-column prop="location" label="位置" width="150" />
+        <el-table-column prop="location" label="位置" min-width="150" show-overflow-tooltip />
+        <el-table-column label="坐标" min-width="180">
+          <template #default="scope">
+            <span v-if="scope.row.latitude && scope.row.longitude">
+              {{ scope.row.latitude }}, {{ scope.row.longitude }}
+            </span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作">
           <template #default="scope">
             <el-button
@@ -104,7 +112,19 @@
           </el-select>
         </el-form-item>
         <el-form-item label="位置" prop="location">
-          <el-input v-model="deviceForm.location" />
+          <div style="display: flex; align-items: center;">
+            <el-input v-model="deviceForm.location" style="margin-right: 10px" />
+            <el-button type="primary" @click="getCurrentPosition">
+              <el-icon><Location /></el-icon>
+              定位
+            </el-button>
+          </div>
+        </el-form-item>
+        <el-form-item label="经度" prop="longitude">
+          <el-input v-model="deviceForm.longitude" />
+        </el-form-item>
+        <el-form-item label="纬度" prop="latitude">
+          <el-input v-model="deviceForm.latitude" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="deviceForm.description" type="textarea" rows="3" />
@@ -123,6 +143,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Location } from '@element-plus/icons-vue'
 import { useDeviceStore } from '../../stores/device'
 
 const deviceStore = useDeviceStore()
@@ -145,6 +166,8 @@ const deviceForm = reactive({
   name: '',
   type: '',
   location: '',
+  latitude: '',
+  longitude: '',
   description: ''
 })
 
@@ -162,15 +185,23 @@ const getDeviceList = () => {
   // 这里模拟API请求，实际项目中应从后端获取数据
   setTimeout(() => {
     // 模拟数据
-    const mockDevices = Array(20).fill(0).map((_, index) => ({
-      id: `DEV${String(index + 1).padStart(5, '0')}`,
-      name: `测试设备${index + 1}`,
-      type: ['sensor', 'controller', 'gateway', 'camera'][Math.floor(Math.random() * 4)],
-      status: ['online', 'offline', 'alarm'][Math.floor(Math.random() * 3)],
-      lastActiveTime: new Date().toLocaleString(),
-      location: `位置${index + 1}`,
-      description: `这是测试设备${index + 1}的描述`
-    }))
+    const mockDevices = Array(20).fill(0).map((_, index) => {
+      // 随机生成经纬度数据，中国大致范围
+      const latitude = (30 + Math.random() * 10).toFixed(6)
+      const longitude = (100 + Math.random() * 20).toFixed(6)
+      
+      return {
+        id: `DEV${String(index + 1).padStart(5, '0')}`,
+        name: `测试设备${index + 1}`,
+        type: ['sensor', 'controller', 'gateway', 'camera'][Math.floor(Math.random() * 4)],
+        status: ['online', 'offline', 'alarm'][Math.floor(Math.random() * 3)],
+        lastActiveTime: new Date().toLocaleString(),
+        location: `位置${index + 1}`,
+        latitude,
+        longitude,
+        description: `这是测试设备${index + 1}的描述`
+      }
+    })
     
     // 过滤
     let filteredDevices = [...mockDevices]
@@ -189,7 +220,18 @@ const getDeviceList = () => {
     deviceList.value = filteredDevices.slice(start, end)
     total.value = filteredDevices.length
     
+    // 设置设备统计信息
+    const stats = {
+      total: filteredDevices.length,
+      online: filteredDevices.filter(d => d.status === 'online').length,
+      offline: filteredDevices.filter(d => d.status === 'offline').length,
+      alarm: filteredDevices.filter(d => d.status === 'alarm').length
+    }
+    
+    // 更新设备store
     deviceStore.setDeviceList(deviceList.value)
+    deviceStore.setDeviceStats(stats)
+    
     loading.value = false
   }, 500)
 }
@@ -241,6 +283,8 @@ const handleEdit = (row) => {
     name: row.name,
     type: row.type,
     location: row.location,
+    latitude: row.latitude || '',
+    longitude: row.longitude || '',
     description: row.description
   })
   dialogVisible.value = true
@@ -277,6 +321,8 @@ const resetDeviceForm = () => {
     name: '',
     type: '',
     location: '',
+    latitude: '',
+    longitude: '',
     description: ''
   })
 }
@@ -288,11 +334,90 @@ const submitDeviceForm = () => {
   deviceFormRef.value.validate((valid) => {
     if (valid) {
       // 这里应调用添加/编辑API，这里模拟成功
+      if (dialogType.value === 'add') {
+        // 模拟添加新设备
+        const newDevice = {
+          id: `DEV${new Date().getTime()}`,
+          name: deviceForm.name,
+          type: deviceForm.type,
+          status: 'online',
+          lastActiveTime: new Date().toLocaleString(),
+          location: deviceForm.location,
+          latitude: deviceForm.latitude,
+          longitude: deviceForm.longitude,
+          description: deviceForm.description
+        }
+        
+        // 将新设备添加到列表
+        deviceList.value.unshift(newDevice)
+        total.value++
+        
+        // 保存设备位置信息到store
+        deviceStore.addDeviceLocation(newDevice)
+      } else {
+        // 模拟更新设备
+        const index = deviceList.value.findIndex(device => device.id === deviceForm.id)
+        if (index !== -1) {
+          deviceList.value[index] = {
+            ...deviceList.value[index],
+            name: deviceForm.name,
+            type: deviceForm.type,
+            location: deviceForm.location,
+            latitude: deviceForm.latitude,
+            longitude: deviceForm.longitude,
+            description: deviceForm.description
+          }
+          
+          // 更新设备位置信息到store
+          deviceStore.addDeviceLocation(deviceList.value[index])
+        }
+      }
+      
       ElMessage.success(dialogType.value === 'add' ? '设备添加成功' : '设备更新成功')
       dialogVisible.value = false
-      getDeviceList()
+      
+      // 刷新设备列表
+      // getDeviceList()
     }
   })
+}
+
+// 获取当前位置
+const getCurrentPosition = () => {
+  if (!navigator.geolocation) {
+    ElMessage.warning('您的浏览器不支持获取地理位置')
+    return
+  }
+  
+  ElMessage.info('正在获取位置信息...')
+  
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      deviceForm.latitude = position.coords.latitude.toFixed(6)
+      deviceForm.longitude = position.coords.longitude.toFixed(6)
+      ElMessage.success('位置信息获取成功')
+    },
+    (error) => {
+      let errorMessage = '获取位置信息失败'
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = '用户拒绝了位置请求'
+          break
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = '位置信息不可用'
+          break
+        case error.TIMEOUT:
+          errorMessage = '获取位置超时'
+          break
+      }
+      ElMessage.error(errorMessage)
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 0
+    }
+  )
 }
 
 onMounted(() => {

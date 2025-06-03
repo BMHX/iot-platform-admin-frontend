@@ -1,44 +1,44 @@
 <template>
-  <div class="settings-container">
+  <div class="tenants-container">
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>系统设置</span>
+          <span>租户管理</span>
         </div>
       </template>
       
       <el-tabs type="border-card">
-        <!-- 管理员管理 -->
+        <!-- 学校管理 -->
         <el-tab-pane>
           <template #label>
             <div class="custom-tabs-label">
-              <el-icon><User /></el-icon>
-              <span>管理员管理</span>
+              <el-icon><School /></el-icon>
+              <span>学校管理</span>
             </div>
           </template>
-          <admin-management />
+          <school-management />
         </el-tab-pane>
         
-        <!-- 权限管理 -->
+        <!-- 小区管理 -->
         <el-tab-pane>
           <template #label>
             <div class="custom-tabs-label">
-              <el-icon><Lock /></el-icon>
-              <span>权限管理</span>
+              <el-icon><House /></el-icon>
+              <span>小区管理</span>
             </div>
           </template>
-          <permission-management />
+          <community-management />
         </el-tab-pane>
         
-        <!-- 菜单管理 -->
+        <!-- 驿站管理 -->
         <el-tab-pane>
           <template #label>
             <div class="custom-tabs-label">
-              <el-icon><Menu /></el-icon>
-              <span>菜单管理</span>
+              <el-icon><Location /></el-icon>
+              <span>驿站管理</span>
             </div>
           </template>
-          <menu-management />
+          <station-management />
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -47,13 +47,14 @@
 
 <script setup>
 import { ref } from 'vue'
-import AdminManagement from './components/AdminManagement.vue'
-import PermissionManagement from './components/PermissionManagement.vue'
-import MenuManagement from './components/MenuManagement.vue'
+import SchoolManagement from '../settings/components/SchoolManagement.vue'
+import CommunityManagement from '../settings/components/CommunityManagement.vue'
+import StationManagement from '../settings/components/StationManagement.vue'
+import { School, House, Location } from '@element-plus/icons-vue'
 </script>
 
 <style scoped>
-.settings-container {
+.tenants-container {
   padding: 20px;
   width: 100%;
 }

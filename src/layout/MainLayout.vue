@@ -2,9 +2,10 @@
   <div class="layout">
     <el-container class="container">
       <!-- 侧边栏 -->
-      <el-aside width="220px" class="aside">
+      <el-aside :width="isCollapse ? '64px' : '220px'" class="aside">
         <div class="logo">
-          <h2>物联网运营平台</h2>
+          <h2 v-if="!isCollapse">物联网运营平台</h2>
+          <h2 v-else>IoT</h2>
         </div>
         <el-menu
           router
@@ -12,6 +13,8 @@
           background-color="#304156"
           text-color="#bfcbd9"
           active-text-color="#409EFF"
+          :collapse="isCollapse"
+          :collapse-transition="false"
         >
           <el-menu-item
             v-for="route in routes"
@@ -19,7 +22,7 @@
             :index="'/' + route.path"
           >
             <el-icon><component :is="route.meta.icon" /></el-icon>
-            <span>{{ route.meta.title }}</span>
+            <template #title>{{ route.meta.title }}</template>
           </el-menu-item>
         </el-menu>
       </el-aside>
@@ -28,9 +31,22 @@
         <!-- 顶部导航 -->
         <el-header class="header">
           <div class="header-left">
-            <el-icon :size="20" @click="toggleSidebar"><Fold /></el-icon>
+            <el-icon :size="20" @click="toggleSidebar">
+              <component :is="isCollapse ? 'Expand' : 'Fold'" />
+            </el-icon>
           </div>
           <div class="header-right">
+            <el-button 
+              v-if="isDataScreen" 
+              type="primary" 
+              @click="toggleFullScreen" 
+              class="fullscreen-button"
+            >
+              <el-icon>
+                <component :is="isFullScreen ? 'Close' : 'FullScreen'" />
+              </el-icon>
+              <span>{{ isFullScreen ? '退出全屏' : '全屏展示' }}</span>
+            </el-button>
             <el-dropdown>
               <span class="user-info">
                 管理员 <el-icon><ArrowDown /></el-icon>
@@ -46,7 +62,7 @@
         </el-header>
 
         <!-- 主内容区 -->
-        <el-main class="main-content">
+        <el-main :class="['main-content', { 'is-full-screen': isFullScreen }]">
           <router-view />
         </el-main>
       </el-container>
@@ -55,7 +71,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
@@ -73,10 +89,69 @@ const activeMenu = computed(() => {
   return '/' + route.path
 })
 
+// 判断是否为数据大屏页面
+const isDataScreen = computed(() => {
+  return route.path === '/data-screen'
+})
+
 // 侧边栏切换
 const isCollapse = ref(false)
 const toggleSidebar = () => {
   isCollapse.value = !isCollapse.value
+  localStorage.setItem('sidebarStatus', isCollapse.value ? '1' : '0')
+}
+
+// 全屏模式
+const isFullScreen = ref(false)
+const toggleFullScreen = () => {
+  isFullScreen.value = !isFullScreen.value
+  
+  // 获取数据大屏内容区域
+  const dataScreenEl = document.querySelector('.data-screen')
+  
+  if (isFullScreen.value && dataScreenEl) {
+    // 进入全屏模式
+    if (dataScreenEl.requestFullscreen) {
+      dataScreenEl.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else if (dataScreenEl.webkitRequestFullscreen) { /* Safari */
+      dataScreenEl.webkitRequestFullscreen();
+    } else if (dataScreenEl.msRequestFullscreen) { /* IE11 */
+      dataScreenEl.msRequestFullscreen();
+    }
+  } else {
+    // 退出全屏模式
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(err => {
+        console.error(`Error attempting to exit fullscreen: ${err.message}`);
+      });
+    } else if (document.webkitExitFullscreen) { /* Safari */
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) { /* IE11 */
+      document.msExitFullscreen();
+    }
+  }
+}
+
+// 监听浏览器全屏状态变化
+const handleFullscreenChange = () => {
+  isFullScreen.value = !!document.fullscreenElement || 
+                      !!document.webkitFullscreenElement || 
+                      !!document.msFullscreenElement
+}
+
+// 从本地存储中恢复侧边栏状态
+const initSidebarStatus = () => {
+  const sidebarStatus = localStorage.getItem('sidebarStatus')
+  if (sidebarStatus) {
+    isCollapse.value = sidebarStatus === '1'
+  }
+  
+  // 添加全屏变化事件监听
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+  document.addEventListener('msfullscreenchange', handleFullscreenChange)
 }
 
 // 退出登录
@@ -84,6 +159,23 @@ const logout = () => {
   localStorage.removeItem('token')
   router.push('/login')
 }
+
+// 页面加载时初始化侧边栏状态
+initSidebarStatus()
+
+// 页面卸载时移除事件监听器
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+  document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+})
+
+// 当进入数据大屏页面时，自动折叠侧边栏
+watch(() => route.path, (newPath) => {
+  if (newPath === '/data-screen' && isFullScreen.value) {
+    isCollapse.value = true
+  }
+})
 </script>
 
 <style scoped>
@@ -98,6 +190,8 @@ const logout = () => {
 .aside {
   background-color: #304156;
   color: #fff;
+  transition: width 0.3s;
+  overflow: hidden;
 }
 
 .logo {
@@ -106,6 +200,7 @@ const logout = () => {
   align-items: center;
   justify-content: center;
   color: #fff;
+  overflow: hidden;
 }
 
 .header {
@@ -120,6 +215,12 @@ const logout = () => {
   cursor: pointer;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .user-info {
   display: flex;
   align-items: center;
@@ -131,5 +232,40 @@ const logout = () => {
   padding: 20px;
   width: 100%;
   overflow-x: auto;
+  transition: all 0.3s;
+}
+
+.is-full-screen {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* 折叠菜单样式优化 */
+:deep(.el-menu--collapse) {
+  width: 64px;
+}
+
+:deep(.el-menu--collapse .el-menu-item) {
+  text-align: center;
+}
+
+.fullscreen-button {
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #409EFF;
+  border-color: #409EFF;
+  padding: 8px 15px;
+}
+
+.fullscreen-button:hover {
+  transform: scale(1.05);
+  background-color: #66b1ff;
+  border-color: #66b1ff;
+}
+
+.fullscreen-button i {
+  font-size: 16px;
 }
 </style> 

@@ -27,6 +27,7 @@ export const useUserStore = defineStore('user', () => {
   // 设置用户信息
   function setUserInfo(info) {
     userInfo.value = info
+    localStorage.setItem('userInfo', JSON.stringify(info))
   }
   
   // 登出
@@ -38,6 +39,7 @@ export const useUserStore = defineStore('user', () => {
       role: ''
     }
     localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
   }
   
   return {
