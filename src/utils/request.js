@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: '/', // 使用相对路径，会通过Vite代理转发到后端服务
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -13,6 +13,7 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   config => {
+    console.log('发送请求:', config.url, config.method, config.params || config.data)
     // 从localStorage获取token
     const token = localStorage.getItem('token')
     if (token) {
@@ -30,6 +31,7 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   response => {
     const res = response.data
+    console.log('收到响应:', response.config.url, res)
     
     // 根据自定义错误码判断请求是否成功
     if (res.code !== 0 && res.code !== 200) {
@@ -54,6 +56,15 @@ service.interceptors.response.use(
   },
   error => {
     console.error('响应错误:', error)
+    // 获取更详细的错误信息
+    const errorInfo = {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      config: error.config
+    }
+    console.error('错误详情:', errorInfo)
+    
     ElMessage({
       message: error.message || '请求失败',
       type: 'error',

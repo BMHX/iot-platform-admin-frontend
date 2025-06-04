@@ -2,77 +2,43 @@
   <div class="community-management">
     <!-- 操作栏 -->
     <div class="operation-bar">
-      <el-button type="primary" @click="handleAddCommunity">添加小区</el-button>
-      <el-button type="danger" :disabled="selectedCommunities.length === 0" @click="handleBatchDelete">批量删除</el-button>
-    </div>
-
-    <!-- 搜索栏 -->
-    <div class="search-container">
+      <el-button type="primary" @click="handleAdd">添加{{ tenantTypeName }}</el-button>
       <el-input
         v-model="searchKeyword"
-        placeholder="搜索小区名称"
-        style="width: 200px; margin-right: 10px"
+        :placeholder="`请输入${tenantTypeName}名称`"
+        style="width: 300px; margin-left: 20px"
         clearable
-      />
-      <el-select
-        v-model="communityType"
-        placeholder="小区类型"
-        style="width: 150px; margin-right: 10px"
-        clearable
+        @keyup.enter="handleSearch"
       >
-        <el-option label="住宅小区" value="residential" />
-        <el-option label="商业小区" value="commercial" />
-        <el-option label="综合小区" value="mixed" />
-      </el-select>
-      <el-button type="primary" @click="handleSearch">搜索</el-button>
-      <el-button @click="resetSearch">重置</el-button>
+        <template #append>
+          <el-button :icon="Search" @click="handleSearch"></el-button>
+        </template>
+      </el-input>
     </div>
-
-    <!-- 小区列表 -->
+    
+    <!-- 表格 -->
     <el-table
-      :data="communityList"
-      border
-      style="width: 100%"
       v-loading="loading"
-      @selection-change="handleSelectionChange"
+      :data="communityList"
+      stripe
+      style="width: 100%"
     >
-      <el-table-column type="selection" width="50" />
       <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" label="小区名称" width="180" />
-      <el-table-column prop="type" label="小区类型" width="100">
+      <el-table-column prop="name" :label="`${tenantTypeName}名称`" />
+      <el-table-column prop="address" label="地址" />
+      <el-table-column prop="contactPerson" label="联系人" />
+      <el-table-column prop="contactPhone" label="联系电话" />
+      <el-table-column prop="deviceCount" label="设备数量" width="100" />
+      <el-table-column prop="status" label="状态" width="100">
         <template #default="scope">
-          <el-tag :type="getCommunityTypeTag(scope.row.type)">
-            {{ getCommunityTypeText(scope.row.type) }}
+          <el-tag :type="scope.row.status === 'active' ? 'success' : 'danger'">
+            {{ scope.row.status === 'active' ? '启用' : '禁用' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="address" label="地址" />
-      <el-table-column prop="buildingCount" label="楼栋数" width="80" />
-      <el-table-column prop="contactPerson" label="联系人" width="120" />
-      <el-table-column prop="contactPhone" label="联系电话" width="140" />
-      <el-table-column prop="createTime" label="创建时间" width="180" />
-      <el-table-column label="状态" width="100">
+      <el-table-column label="操作" width="200" fixed="right">
         <template #default="scope">
-          <el-switch
-            v-model="scope.row.status"
-            :active-value="'active'"
-            :inactive-value="'inactive'"
-            @change="handleStatusChange(scope.row)"
-          />
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="220">
-        <template #default="scope">
-          <el-button
-            size="small"
-            type="primary"
-            @click="handleEdit(scope.row)"
-          >编辑</el-button>
-          <el-button
-            size="small"
-            type="success"
-            @click="handleViewDetails(scope.row)"
-          >详情</el-button>
+          <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
           <el-button
             size="small"
             type="danger"
@@ -81,140 +47,58 @@
         </template>
       </el-table-column>
     </el-table>
-
+    
     <!-- 分页 -->
     <div class="pagination-container">
       <el-pagination
-        background
+        :current-page="query.page"
+        :page-size="query.limit"
+        :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
         :total="total"
-        :page-size="pageSize"
-        :current-page="currentPage"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
       />
     </div>
-
-    <!-- 添加/编辑小区对话框 -->
+    
+    <!-- 对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogType === 'add' ? '添加小区' : '编辑小区'"
-      width="600px"
+      :title="dialogType === 'add' ? `添加${tenantTypeName}` : `编辑${tenantTypeName}`"
+      width="500px"
     >
       <el-form
-        :model="communityForm"
-        label-width="100px"
-        :rules="rules"
         ref="communityFormRef"
+        :model="communityForm"
+        :rules="rules"
+        label-width="100px"
       >
-        <el-form-item label="小区名称" prop="name">
-          <el-input v-model="communityForm.name" placeholder="请输入小区名称" />
-        </el-form-item>
-        <el-form-item label="小区类型" prop="type">
-          <el-select v-model="communityForm.type" placeholder="请选择小区类型" style="width: 100%">
-            <el-option label="住宅小区" value="residential" />
-            <el-option label="商业小区" value="commercial" />
-            <el-option label="综合小区" value="mixed" />
-          </el-select>
+        <el-form-item :label="`${tenantTypeName}名称`" prop="name">
+          <el-input v-model="communityForm.name" />
         </el-form-item>
         <el-form-item label="地址" prop="address">
-          <el-input v-model="communityForm.address" placeholder="请输入小区地址" />
-        </el-form-item>
-        <el-form-item label="楼栋数" prop="buildingCount">
-          <el-input-number v-model="communityForm.buildingCount" :min="1" />
+          <el-input v-model="communityForm.address" />
         </el-form-item>
         <el-form-item label="联系人" prop="contactPerson">
-          <el-input v-model="communityForm.contactPerson" placeholder="请输入联系人姓名" />
+          <el-input v-model="communityForm.contactPerson" />
         </el-form-item>
         <el-form-item label="联系电话" prop="contactPhone">
-          <el-input v-model="communityForm.contactPhone" placeholder="请输入联系电话" />
+          <el-input v-model="communityForm.contactPhone" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="communityForm.status">
-            <el-radio label="active">启用</el-radio>
-            <el-radio label="inactive">禁用</el-radio>
-          </el-radio-group>
+          <el-select v-model="communityForm.status" placeholder="请选择状态">
+            <el-option label="启用" value="active" />
+            <el-option label="禁用" value="inactive" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="communityForm.remark" type="textarea" :rows="3" placeholder="请输入备注信息" />
+        <el-form-item label="备注">
+          <el-input v-model="communityForm.remark" type="textarea" rows="3" />
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitCommunityForm">确认</el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <!-- 小区详情对话框 -->
-    <el-dialog
-      v-model="detailsDialogVisible"
-      title="小区详情"
-      width="700px"
-    >
-      <div v-if="currentCommunity">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="小区名称">{{ currentCommunity.name }}</el-descriptions-item>
-          <el-descriptions-item label="小区类型">
-            <el-tag :type="getCommunityTypeTag(currentCommunity.type)">
-              {{ getCommunityTypeText(currentCommunity.type) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="地址" :span="2">{{ currentCommunity.address }}</el-descriptions-item>
-          <el-descriptions-item label="楼栋数">{{ currentCommunity.buildingCount }}</el-descriptions-item>
-          <el-descriptions-item label="单元数">{{ currentCommunity.unitCount }}</el-descriptions-item>
-          <el-descriptions-item label="联系人">{{ currentCommunity.contactPerson }}</el-descriptions-item>
-          <el-descriptions-item label="联系电话">{{ currentCommunity.contactPhone }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ currentCommunity.createTime }}</el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag :type="currentCommunity.status === 'active' ? 'success' : 'info'">
-              {{ currentCommunity.status === 'active' ? '启用' : '禁用' }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="备注" :span="2">{{ currentCommunity.remark || '无' }}</el-descriptions-item>
-        </el-descriptions>
-
-        <div class="community-stats" style="margin-top: 20px;">
-          <h4>小区统计信息</h4>
-          <el-row :gutter="20">
-            <el-col :span="8">
-              <el-card shadow="hover">
-                <template #header>
-                  <div class="stat-header">
-                    <span>设备总数</span>
-                  </div>
-                </template>
-                <div class="stat-value">{{ currentCommunity.deviceCount || 0 }}</div>
-              </el-card>
-            </el-col>
-            <el-col :span="8">
-              <el-card shadow="hover">
-                <template #header>
-                  <div class="stat-header">
-                    <span>居民数量</span>
-                  </div>
-                </template>
-                <div class="stat-value">{{ currentCommunity.residentCount || 0 }}</div>
-              </el-card>
-            </el-col>
-            <el-col :span="8">
-              <el-card shadow="hover">
-                <template #header>
-                  <div class="stat-header">
-                    <span>户数</span>
-                  </div>
-                </template>
-                <div class="stat-value">{{ currentCommunity.householdCount || 0 }}</div>
-              </el-card>
-            </el-col>
-          </el-row>
-        </div>
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="detailsDialogVisible = false">关闭</el-button>
-          <el-button type="primary" @click="handleEdit(currentCommunity)">编辑</el-button>
+          <el-button type="primary" @click="submitForm">确认</el-button>
         </span>
       </template>
     </el-dialog>
@@ -222,395 +106,275 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
+import { getTenantList, addTenant, updateTenant, deleteTenant } from '../../../api/tenant'
+
+// 定义组件接收的属性
+const props = defineProps({
+  tenantTypeId: {
+    type: Number,
+    default: null
+  },
+  tenantTypeName: {
+    type: String,
+    default: '小区'
+  }
+})
+
+// 租户类型ID
+const communityTypeId = ref(props.tenantTypeId)
+
+// 查询参数
+const query = reactive({
+  page: 1,
+  limit: 10,
+  name: '',
+  typeId: props.tenantTypeId // 使用传入的租户类型ID
+})
 
 // 列表数据
 const loading = ref(false)
 const communityList = ref([])
 const total = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(10)
 const searchKeyword = ref('')
-const communityType = ref('')
-const selectedCommunities = ref([])
 
-// 对话框
+// 对话框数据
 const dialogVisible = ref(false)
-const dialogType = ref('add') // add 或 edit
+const dialogType = ref('add')
 const communityFormRef = ref(null)
 const communityForm = reactive({
-  id: '',
+  id: null,
+  typeId: props.tenantTypeId, // 使用传入的租户类型ID
   name: '',
-  type: 'residential',
   address: '',
-  buildingCount: 1,
   contactPerson: '',
   contactPhone: '',
   status: 'active',
-  remark: ''
+  remark: '',
+  regionCode: ''
 })
-
-// 详情对话框
-const detailsDialogVisible = ref(false)
-const currentCommunity = ref(null)
 
 // 表单验证规则
 const rules = {
-  name: [
-    { required: true, message: '请输入小区名称', trigger: 'blur' }
-  ],
-  type: [
-    { required: true, message: '请选择小区类型', trigger: 'change' }
-  ],
-  address: [
-    { required: true, message: '请输入小区地址', trigger: 'blur' }
-  ],
-  buildingCount: [
-    { required: true, message: '请输入楼栋数', trigger: 'blur' }
-  ],
-  contactPerson: [
-    { required: true, message: '请输入联系人姓名', trigger: 'blur' }
-  ],
+  name: [{ required: true, message: `请输入${props.tenantTypeName}名称`, trigger: 'blur' }],
+  address: [{ required: true, message: '请输入地址', trigger: 'blur' }],
+  contactPerson: [{ required: true, message: '请输入联系人', trigger: 'blur' }],
   contactPhone: [
     { required: true, message: '请输入联系电话', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
-  ]
-}
-
-// 获取小区类型标签类型
-const getCommunityTypeTag = (type) => {
-  const typeMap = {
-    'residential': 'success',
-    'commercial': 'primary',
-    'mixed': 'warning'
-  }
-  return typeMap[type] || 'info'
-}
-
-// 获取小区类型文本
-const getCommunityTypeText = (type) => {
-  const typeMap = {
-    'residential': '住宅小区',
-    'commercial': '商业小区',
-    'mixed': '综合小区'
-  }
-  return typeMap[type] || '未知'
+  ],
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
 // 获取小区列表
 const getCommunityList = () => {
-  loading.value = true
+  if (!communityTypeId.value) {
+    communityList.value = []
+    total.value = 0
+    return
+  }
   
-  // 模拟API请求
-  setTimeout(() => {
-    // 模拟数据
-    const mockCommunities = [
-      {
-        id: 1,
-        name: '阳光花园',
-        type: 'residential',
-        address: '北京市海淀区西二旗大街58号',
-        buildingCount: 15,
-        unitCount: 60,
-        contactPerson: '张经理',
-        contactPhone: '13800138001',
-        createTime: '2023-03-10 10:30:00',
-        status: 'active',
-        remark: '高档住宅小区',
-        deviceCount: 230,
-        residentCount: 3500,
-        householdCount: 1200
-      },
-      {
-        id: 2,
-        name: '中关村科技园',
-        type: 'commercial',
-        address: '北京市海淀区中关村大街18号',
-        buildingCount: 8,
-        unitCount: 32,
-        contactPerson: '李经理',
-        contactPhone: '13900139002',
-        createTime: '2023-03-15 14:20:00',
-        status: 'active',
-        remark: '高新技术企业园区',
-        deviceCount: 320,
-        residentCount: 0,
-        householdCount: 150
-      },
-      {
-        id: 3,
-        name: '金融街社区',
-        type: 'mixed',
-        address: '北京市西城区金融街7号',
-        buildingCount: 12,
-        unitCount: 48,
-        contactPerson: '王经理',
-        contactPhone: '13700137003',
-        createTime: '2023-04-01 09:15:00',
-        status: 'active',
-        remark: '金融商务区',
-        deviceCount: 450,
-        residentCount: 2800,
-        householdCount: 980
-      },
-      {
-        id: 4,
-        name: '星光家园',
-        type: 'residential',
-        address: '北京市朝阳区建国路128号',
-        buildingCount: 20,
-        unitCount: 80,
-        contactPerson: '赵主管',
-        contactPhone: '13600136004',
-        createTime: '2023-04-10 11:40:00',
-        status: 'active',
-        remark: '普通住宅区',
-        deviceCount: 180,
-        residentCount: 5600,
-        householdCount: 1800
-      },
-      {
-        id: 5,
-        name: '望京SOHO',
-        type: 'commercial',
-        address: '北京市朝阳区望京街道',
-        buildingCount: 3,
-        unitCount: 12,
-        contactPerson: '钱经理',
-        contactPhone: '13500135005',
-        createTime: '2023-05-01 16:25:00',
-        status: 'inactive',
-        remark: '暂停运营',
-        deviceCount: 0,
-        residentCount: 0,
-        householdCount: 0
-      }
-    ]
-    
-    // 过滤
-    let filteredCommunities = [...mockCommunities]
-    if (searchKeyword.value) {
-      filteredCommunities = filteredCommunities.filter(c => c.name.includes(searchKeyword.value))
+  loading.value = true
+  // 调用租户API获取小区类型的租户
+  getTenantList({
+    ...query,
+    typeId: communityTypeId.value // 确保使用最新的租户类型ID
+  }).then(res => {
+    if (res.code === 0 || res.code === 200) {
+      // 处理返回的数据格式，适配前端显示
+      const list = (res.data.list || []).map(item => ({
+        ...item,
+        // 确保状态字段格式一致
+        status: item.status || 'active',
+        // 如果后端返回的设备数量为null，则显示为0
+        deviceCount: item.deviceCount || 0,
+        // 初始化属性对象
+        attributes: {}
+      }))
+      
+      // 获取每个租户的属性值
+      Promise.all(list.map(tenant => loadTenantAttributes(tenant)))
+        .then(() => {
+          communityList.value = list
+          total.value = res.data.total || 0
+          loading.value = false
+        })
+        .catch(err => {
+          console.error('获取租户属性值失败:', err)
+          communityList.value = list
+          total.value = res.data.total || 0
+          loading.value = false
+        })
+    } else {
+      ElMessage.error(res.message || `获取${props.tenantTypeName}列表失败`)
+      loading.value = false
     }
-    if (communityType.value) {
-      filteredCommunities = filteredCommunities.filter(c => c.type === communityType.value)
-    }
-    
-    // 分页
-    const start = (currentPage.value - 1) * pageSize.value
-    const end = start + pageSize.value
-    communityList.value = filteredCommunities.slice(start, end)
-    total.value = filteredCommunities.length
-    
+  }).catch(err => {
+    console.error(`获取${props.tenantTypeName}列表失败:`, err)
+    ElMessage.error(`获取${props.tenantTypeName}列表失败`)
     loading.value = false
-  }, 500)
+    
+    // 如果API调用失败，使用模拟数据
+    useMockData()
+  })
 }
 
-// 表格选择变化
-const handleSelectionChange = (selection) => {
-  selectedCommunities.value = selection
+// 使用模拟数据
+const useMockData = () => {
+  // 模拟数据
+  const mockData = Array(15).fill(0).map((_, index) => {
+    return {
+      id: index + 1,
+      typeId: communityTypeId.value,
+      name: `测试${props.tenantTypeName}${index + 1}`,
+      address: `测试地址${index + 1}`,
+      contactPerson: `联系人${index + 1}`,
+      contactPhone: `1379999${String(index + 1).padStart(4, '0')}`,
+      status: index % 3 === 0 ? 'inactive' : 'active',
+      deviceCount: Math.floor(Math.random() * 100),
+      remark: `这是测试${props.tenantTypeName}${index + 1}的备注信息`
+    }
+  })
+  
+  // 分页处理
+  const start = (query.page - 1) * query.limit
+  const end = start + query.limit
+  communityList.value = mockData.slice(start, end)
+  total.value = mockData.length
+  
+  loading.value = false
 }
+
+// 监听属性变化
+watch(() => props.tenantTypeId, (newVal) => {
+  if (newVal) {
+    communityTypeId.value = newVal
+    query.typeId = newVal
+    communityForm.typeId = newVal
+    getCommunityList()
+  } else {
+    // 未传入租户类型ID，显示空列表
+    communityList.value = []
+    total.value = 0
+    loading.value = false
+  }
+}, { immediate: true })
 
 // 搜索
 const handleSearch = () => {
-  currentPage.value = 1
+  query.page = 1
+  query.name = searchKeyword.value
   getCommunityList()
 }
 
-// 重置搜索
-const resetSearch = () => {
-  searchKeyword.value = ''
-  communityType.value = ''
-  currentPage.value = 1
-  getCommunityList()
-}
-
-// 分页变化
+// 处理每页条数变化
 const handleSizeChange = (val) => {
-  pageSize.value = val
+  query.limit = val
   getCommunityList()
 }
 
+// 处理页码变化
 const handleCurrentChange = (val) => {
-  currentPage.value = val
+  query.page = val
   getCommunityList()
 }
 
 // 添加小区
-const handleAddCommunity = () => {
+const handleAdd = () => {
   dialogType.value = 'add'
-  resetCommunityForm()
+  communityForm.id = null
+  communityForm.typeId = communityTypeId.value
+  communityForm.name = ''
+  communityForm.address = ''
+  communityForm.contactPerson = ''
+  communityForm.contactPhone = ''
+  communityForm.status = 'active'
+  communityForm.remark = ''
+  communityForm.regionCode = ''
   dialogVisible.value = true
 }
 
 // 编辑小区
 const handleEdit = (row) => {
   dialogType.value = 'edit'
-  // 填充表单
-  Object.assign(communityForm, {
-    id: row.id,
-    name: row.name,
-    type: row.type,
-    address: row.address,
-    buildingCount: row.buildingCount,
-    contactPerson: row.contactPerson,
-    contactPhone: row.contactPhone,
-    status: row.status,
-    remark: row.remark || ''
-  })
+  communityForm.id = row.id
+  communityForm.typeId = row.typeId || communityTypeId.value
+  communityForm.name = row.name
+  communityForm.address = row.address
+  communityForm.contactPerson = row.contactPerson
+  communityForm.contactPhone = row.contactPhone
+  communityForm.status = row.status || 'active'
+  communityForm.remark = row.remark || ''
+  communityForm.regionCode = row.regionCode || ''
   dialogVisible.value = true
-  
-  // 如果是从详情页打开的编辑，先关闭详情对话框
-  if (detailsDialogVisible.value) {
-    detailsDialogVisible.value = false
-  }
-}
-
-// 查看详情
-const handleViewDetails = (row) => {
-  currentCommunity.value = { ...row }
-  detailsDialogVisible.value = true
 }
 
 // 删除小区
 const handleDelete = (row) => {
-  ElMessageBox.confirm(
-    `确认删除小区 ${row.name}?`,
-    '删除确认',
-    {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  )
-    .then(() => {
-      // 模拟API请求
-      setTimeout(() => {
-        const index = communityList.value.findIndex(item => item.id === row.id)
-        if (index !== -1) {
-          communityList.value.splice(index, 1)
-          total.value--
-        }
-        ElMessage.success('小区已删除')
-      }, 300)
+  ElMessageBox.confirm(`确定要删除${props.tenantTypeName}"${row.name}"吗？`, '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    // 调用删除API
+    deleteTenant([row.id]).then(res => {
+      if (res.code === 0 || res.code === 200) {
+        ElMessage.success('删除成功')
+        getCommunityList()
+      } else {
+        ElMessage.error(res.message || '删除失败')
+      }
+    }).catch(err => {
+      console.error(`删除${props.tenantTypeName}失败:`, err)
+      ElMessage.error('删除失败')
+      
+      // 模拟删除成功
+      ElMessage.success('模拟删除成功')
+      getCommunityList()
     })
-    .catch(() => {
-      // 用户取消操作
-    })
-}
-
-// 批量删除
-const handleBatchDelete = () => {
-  if (selectedCommunities.value.length === 0) return
-  
-  ElMessageBox.confirm(
-    `确认删除选中的 ${selectedCommunities.value.length} 个小区?`,
-    '批量删除',
-    {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  )
-    .then(() => {
-      // 模拟API请求
-      setTimeout(() => {
-        const ids = selectedCommunities.value.map(item => item.id)
-        communityList.value = communityList.value.filter(item => !ids.includes(item.id))
-        total.value -= ids.length
-        
-        ElMessage.success(`已删除 ${ids.length} 个小区`)
-        selectedCommunities.value = []
-      }, 300)
-    })
-    .catch(() => {
-      // 用户取消操作
-    })
-}
-
-// 修改状态
-const handleStatusChange = (row) => {
-  const statusText = row.status === 'active' ? '启用' : '禁用'
-  ElMessage.success(`小区 ${row.name} 已${statusText}`)
-}
-
-// 重置表单
-const resetCommunityForm = () => {
-  if (communityFormRef.value) {
-    communityFormRef.value.resetFields()
-  }
-  Object.assign(communityForm, {
-    id: '',
-    name: '',
-    type: 'residential',
-    address: '',
-    buildingCount: 1,
-    contactPerson: '',
-    contactPhone: '',
-    status: 'active',
-    remark: ''
+  }).catch(() => {
+    // 取消删除
   })
 }
 
 // 提交表单
-const submitCommunityForm = () => {
+const submitForm = () => {
   if (!communityFormRef.value) return
   
   communityFormRef.value.validate((valid) => {
     if (valid) {
-      if (dialogType.value === 'add') {
-        // 添加小区
-        const newCommunity = {
-          id: new Date().getTime(),
-          name: communityForm.name,
-          type: communityForm.type,
-          address: communityForm.address,
-          buildingCount: communityForm.buildingCount,
-          unitCount: communityForm.buildingCount * 4, // 假设每栋楼有4个单元
-          contactPerson: communityForm.contactPerson,
-          contactPhone: communityForm.contactPhone,
-          createTime: new Date().toLocaleString(),
-          status: communityForm.status,
-          remark: communityForm.remark,
-          deviceCount: 0,
-          residentCount: 0,
-          householdCount: 0
-        }
-        communityList.value.unshift(newCommunity)
-        total.value++
-        ElMessage.success('小区添加成功')
-      } else {
-        // 编辑小区
-        const index = communityList.value.findIndex(item => item.id === communityForm.id)
-        if (index !== -1) {
-          // 计算新的单元数
-          const unitCount = communityForm.buildingCount * 4 // 假设每栋楼有4个单元
-          
-          const updatedCommunity = {
-            ...communityList.value[index],
-            name: communityForm.name,
-            type: communityForm.type,
-            address: communityForm.address,
-            buildingCount: communityForm.buildingCount,
-            unitCount: unitCount,
-            contactPerson: communityForm.contactPerson,
-            contactPhone: communityForm.contactPhone,
-            status: communityForm.status,
-            remark: communityForm.remark
-          }
-          communityList.value.splice(index, 1, updatedCommunity)
-        }
-        ElMessage.success('小区信息更新成功')
-      }
+      const apiCall = dialogType.value === 'add' 
+        ? addTenant(communityForm)
+        : updateTenant(communityForm.id, communityForm)
       
-      dialogVisible.value = false
+      apiCall.then(res => {
+        if (res.code === 0 || res.code === 200) {
+          ElMessage.success(dialogType.value === 'add' ? '添加成功' : '修改成功')
+          dialogVisible.value = false
+          getCommunityList()
+        } else {
+          ElMessage.error(res.message || (dialogType.value === 'add' ? '添加失败' : '修改失败'))
+        }
+      }).catch(err => {
+        console.error(dialogType.value === 'add' ? `添加${props.tenantTypeName}失败:` : `修改${props.tenantTypeName}失败:`, err)
+        ElMessage.error(dialogType.value === 'add' ? '添加失败' : '修改失败')
+        
+        // 模拟成功
+        ElMessage.success(dialogType.value === 'add' ? '模拟添加成功' : '模拟修改成功')
+        dialogVisible.value = false
+        getCommunityList()
+      })
     }
   })
 }
 
+// 初始化
 onMounted(() => {
-  getCommunityList()
+  if (communityTypeId.value) {
+    getCommunityList()
+  }
 })
 </script>
 
@@ -620,34 +384,14 @@ onMounted(() => {
 }
 
 .operation-bar {
-  margin-bottom: 20px;
   display: flex;
-  gap: 10px;
-}
-
-.search-container {
+  justify-content: flex-start;
   margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
 }
 
 .pagination-container {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-}
-
-.stat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: bold;
-  text-align: center;
-  color: #409EFF;
 }
 </style> 

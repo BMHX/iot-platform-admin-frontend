@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { getDeviceList, getAllDevices } from '../api/device'
 
 export const useDeviceStore = defineStore('device', () => {
   // 设备列表
@@ -19,6 +20,9 @@ export const useDeviceStore = defineStore('device', () => {
   
   // 设备位置数据
   const deviceLocations = ref([])
+
+  // 加载中状态
+  const loading = ref(false)
   
   // 设置设备列表
   function setDeviceList(list) {
@@ -65,6 +69,62 @@ export const useDeviceStore = defineStore('device', () => {
       deviceLocations.value.push(locationInfo)
     }
   }
+
+  // 从API获取设备列表
+  async function fetchDeviceList(params = {}) {
+    loading.value = true
+    try {
+      const res = await getDeviceList(params)
+      if (res.code === 0 || res.code === 200) {
+        // 更新设备列表
+        setDeviceList(res.data.list || [])
+        deviceTotal.value = res.data.total || 0
+        
+        // 更新统计信息
+        if (res.data.stats) {
+          setDeviceStats(res.data.stats)
+        } else {
+          // 手动计算统计信息
+          const stats = {
+            total: deviceList.value.length,
+            online: deviceList.value.filter(d => d.status === 'online').length,
+            offline: deviceList.value.filter(d => d.status === 'offline').length,
+            alarm: deviceList.value.filter(d => d.status === 'alarm').length
+          }
+          setDeviceStats(stats)
+        }
+        
+        return res.data
+      } else {
+        console.error('获取设备列表失败:', res.message)
+        return Promise.reject(res.message || '获取设备列表失败')
+      }
+    } catch (error) {
+      console.error('获取设备列表异常:', error)
+      return Promise.reject(error)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 从API获取所有设备（不分页）
+  async function fetchAllDevices() {
+    loading.value = true
+    try {
+      const res = await getAllDevices()
+      if (res.code === 0 || res.code === 200) {
+        return res.data || []
+      } else {
+        console.error('获取所有设备失败:', res.message)
+        return Promise.reject(res.message || '获取所有设备失败')
+      }
+    } catch (error) {
+      console.error('获取所有设备异常:', error)
+      return Promise.reject(error)
+    } finally {
+      loading.value = false
+    }
+  }
   
   return {
     deviceList,
@@ -73,8 +133,11 @@ export const useDeviceStore = defineStore('device', () => {
     offlineDeviceCount,
     alarmDeviceCount,
     deviceLocations,
+    loading,
     setDeviceList,
     setDeviceStats,
-    addDeviceLocation
+    addDeviceLocation,
+    fetchDeviceList,
+    fetchAllDevices
   }
 }) 

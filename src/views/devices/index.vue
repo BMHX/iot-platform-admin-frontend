@@ -145,6 +145,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Location } from '@element-plus/icons-vue'
 import { useDeviceStore } from '../../stores/device'
+import { getDeviceList, addDevice, updateDevice, deleteDevice } from '../../api/device'
 
 const deviceStore = useDeviceStore()
 
@@ -179,67 +180,98 @@ const rules = {
 }
 
 // 获取设备列表
-const getDeviceList = () => {
+const getDevices = () => {
   loading.value = true
   
-  // 这里模拟API请求，实际项目中应从后端获取数据
-  setTimeout(() => {
-    // 模拟数据
-    const mockDevices = Array(20).fill(0).map((_, index) => {
-      // 随机生成经纬度数据，中国大致范围
-      const latitude = (30 + Math.random() * 10).toFixed(6)
-      const longitude = (100 + Math.random() * 20).toFixed(6)
+  // 构建查询参数
+  const params = {
+    page: currentPage.value,
+    limit: pageSize.value,
+    keyword: searchQuery.value,
+    status: statusFilter.value
+  }
+  
+  // 调用API
+  getDeviceList(params).then(res => {
+    if (res.code === 0 || res.code === 200) {
+      // 更新设备列表和总数
+      deviceList.value = res.data.list || []
+      total.value = res.data.total || 0
       
-      return {
-        id: `DEV${String(index + 1).padStart(5, '0')}`,
-        name: `测试设备${index + 1}`,
-        type: ['sensor', 'controller', 'gateway', 'camera'][Math.floor(Math.random() * 4)],
-        status: ['online', 'offline', 'alarm'][Math.floor(Math.random() * 3)],
-        lastActiveTime: new Date().toLocaleString(),
-        location: `位置${index + 1}`,
-        latitude,
-        longitude,
-        description: `这是测试设备${index + 1}的描述`
+      // 更新设备状态统计信息
+      if (res.data.stats) {
+        deviceStore.setDeviceStats(res.data.stats)
+      } else {
+        // 如果接口未返回统计信息，手动计算
+        const stats = {
+          total: deviceList.value.length,
+          online: deviceList.value.filter(d => d.status === 'online').length,
+          offline: deviceList.value.filter(d => d.status === 'offline').length,
+          alarm: deviceList.value.filter(d => d.status === 'alarm').length
+        }
+        deviceStore.setDeviceStats(stats)
       }
-    })
-    
-    // 过滤
-    let filteredDevices = [...mockDevices]
-    if (searchQuery.value) {
-      filteredDevices = filteredDevices.filter(
-        device => device.name.includes(searchQuery.value) || device.id.includes(searchQuery.value)
-      )
+      
+      // 更新设备列表到store
+      deviceStore.setDeviceList(deviceList.value)
+    } else {
+      ElMessage.error(res.message || '获取设备列表失败')
     }
-    if (statusFilter.value) {
-      filteredDevices = filteredDevices.filter(device => device.status === statusFilter.value)
-    }
-    
-    // 分页
-    const start = (currentPage.value - 1) * pageSize.value
-    const end = start + pageSize.value
-    deviceList.value = filteredDevices.slice(start, end)
-    total.value = filteredDevices.length
-    
-    // 设置设备统计信息
-    const stats = {
-      total: filteredDevices.length,
-      online: filteredDevices.filter(d => d.status === 'online').length,
-      offline: filteredDevices.filter(d => d.status === 'offline').length,
-      alarm: filteredDevices.filter(d => d.status === 'alarm').length
-    }
-    
-    // 更新设备store
-    deviceStore.setDeviceList(deviceList.value)
-    deviceStore.setDeviceStats(stats)
-    
     loading.value = false
-  }, 500)
+  }).catch(error => {
+    console.error('获取设备列表失败:', error)
+    ElMessage.error('获取设备列表失败')
+    loading.value = false
+    
+    // 使用模拟数据
+    useMockData()
+  })
 }
 
-// 搜索
+// 使用模拟数据（API调用失败时的备选方案）
+const useMockData = () => {
+  // 模拟数据
+  const mockDevices = Array(20).fill(0).map((_, index) => {
+    // 随机生成经纬度数据，中国大致范围
+    const latitude = (30 + Math.random() * 10).toFixed(6)
+    const longitude = (100 + Math.random() * 20).toFixed(6)
+    
+    return {
+      id: `DEV${String(index + 1).padStart(5, '0')}`,
+      name: `测试设备${index + 1}`,
+      type: ['sensor', 'controller', 'gateway', 'camera'][Math.floor(Math.random() * 4)],
+      status: ['online', 'offline', 'alarm'][Math.floor(Math.random() * 3)],
+      lastActiveTime: new Date().toLocaleString(),
+      location: `位置${index + 1}`,
+      latitude,
+      longitude,
+      description: `这是测试设备${index + 1}的描述信息`
+    }
+  })
+  
+  // 分页处理
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  deviceList.value = mockDevices.slice(start, end)
+  total.value = mockDevices.length
+  
+  // 更新设备状态统计信息
+  const stats = {
+    total: mockDevices.length,
+    online: mockDevices.filter(d => d.status === 'online').length,
+    offline: mockDevices.filter(d => d.status === 'offline').length,
+    alarm: mockDevices.filter(d => d.status === 'alarm').length
+  }
+  deviceStore.setDeviceStats(stats)
+  
+  // 更新设备列表到store
+  deviceStore.setDeviceList(deviceList.value)
+}
+
+// 处理搜索
 const handleSearch = () => {
   currentPage.value = 1
-  getDeviceList()
+  getDevices()
 }
 
 // 重置搜索
@@ -247,181 +279,135 @@ const resetSearch = () => {
   searchQuery.value = ''
   statusFilter.value = ''
   currentPage.value = 1
-  getDeviceList()
+  getDevices()
 }
 
-// 分页变化
-const handleSizeChange = (val) => {
-  pageSize.value = val
-  getDeviceList()
+// 处理页码变化
+const handleCurrentChange = (page) => {
+  currentPage.value = page
+  getDevices()
 }
 
-const handleCurrentChange = (val) => {
-  currentPage.value = val
-  getDeviceList()
+// 处理每页条数变化
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  getDevices()
 }
 
-// 添加设备
+// 显示添加设备对话框
 const showAddDeviceDialog = () => {
   dialogType.value = 'add'
-  resetDeviceForm()
+  deviceForm.id = ''
+  deviceForm.name = ''
+  deviceForm.type = ''
+  deviceForm.location = ''
+  deviceForm.latitude = ''
+  deviceForm.longitude = ''
+  deviceForm.description = ''
   dialogVisible.value = true
 }
 
-// 查看设备
+// 处理查看设备
 const handleView = (row) => {
+  // 实现查看设备详情的逻辑
   ElMessage.info(`查看设备: ${row.name}`)
-  // 这里可以导航到设备详情页
 }
 
-// 编辑设备
+// 处理编辑设备
 const handleEdit = (row) => {
   dialogType.value = 'edit'
-  // 填充表单
-  Object.assign(deviceForm, {
-    id: row.id,
-    name: row.name,
-    type: row.type,
-    location: row.location,
-    latitude: row.latitude || '',
-    longitude: row.longitude || '',
-    description: row.description
-  })
+  deviceForm.id = row.id
+  deviceForm.name = row.name
+  deviceForm.type = row.type
+  deviceForm.location = row.location
+  deviceForm.latitude = row.latitude
+  deviceForm.longitude = row.longitude
+  deviceForm.description = row.description || ''
   dialogVisible.value = true
 }
 
-// 删除设备
+// 处理删除设备
 const handleDelete = (row) => {
-  ElMessageBox.confirm(
-    `确认删除设备 ${row.name}?`,
-    '删除确认',
-    {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  )
-    .then(() => {
-      // 这里应调用删除API，这里模拟成功
-      ElMessage.success('设备已删除')
-      getDeviceList()
-    })
-    .catch(() => {
-      // 用户取消删除
-    })
-}
-
-// 重置表单
-const resetDeviceForm = () => {
-  if (deviceFormRef.value) {
-    deviceFormRef.value.resetFields()
-  }
-  Object.assign(deviceForm, {
-    id: '',
-    name: '',
-    type: '',
-    location: '',
-    latitude: '',
-    longitude: '',
-    description: ''
-  })
-}
-
-// 提交表单
-const submitDeviceForm = () => {
-  if (!deviceFormRef.value) return
-  
-  deviceFormRef.value.validate((valid) => {
-    if (valid) {
-      // 这里应调用添加/编辑API，这里模拟成功
-      if (dialogType.value === 'add') {
-        // 模拟添加新设备
-        const newDevice = {
-          id: `DEV${new Date().getTime()}`,
-          name: deviceForm.name,
-          type: deviceForm.type,
-          status: 'online',
-          lastActiveTime: new Date().toLocaleString(),
-          location: deviceForm.location,
-          latitude: deviceForm.latitude,
-          longitude: deviceForm.longitude,
-          description: deviceForm.description
-        }
-        
-        // 将新设备添加到列表
-        deviceList.value.unshift(newDevice)
-        total.value++
-        
-        // 保存设备位置信息到store
-        deviceStore.addDeviceLocation(newDevice)
+  ElMessageBox.confirm(`确定要删除设备 ${row.name} 吗？`, '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    // 调用删除API
+    deleteDevice(row.id).then(res => {
+      if (res.code === 0 || res.code === 200) {
+        ElMessage.success('设备删除成功')
+        getDevices() // 重新加载设备列表
       } else {
-        // 模拟更新设备
-        const index = deviceList.value.findIndex(device => device.id === deviceForm.id)
-        if (index !== -1) {
-          deviceList.value[index] = {
-            ...deviceList.value[index],
-            name: deviceForm.name,
-            type: deviceForm.type,
-            location: deviceForm.location,
-            latitude: deviceForm.latitude,
-            longitude: deviceForm.longitude,
-            description: deviceForm.description
-          }
-          
-          // 更新设备位置信息到store
-          deviceStore.addDeviceLocation(deviceList.value[index])
-        }
+        ElMessage.error(res.message || '设备删除失败')
       }
+    }).catch(err => {
+      console.error('删除设备失败:', err)
+      ElMessage.error('删除设备失败')
       
-      ElMessage.success(dialogType.value === 'add' ? '设备添加成功' : '设备更新成功')
-      dialogVisible.value = false
-      
-      // 刷新设备列表
-      // getDeviceList()
-    }
+      // 模拟删除成功
+      ElMessage.success('模拟删除成功')
+      getDevices() // 重新加载设备列表
+    })
+  }).catch(() => {
+    // 取消删除
   })
 }
 
 // 获取当前位置
 const getCurrentPosition = () => {
-  if (!navigator.geolocation) {
-    ElMessage.warning('您的浏览器不支持获取地理位置')
-    return
-  }
-  
-  ElMessage.info('正在获取位置信息...')
-  
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      deviceForm.latitude = position.coords.latitude.toFixed(6)
-      deviceForm.longitude = position.coords.longitude.toFixed(6)
-      ElMessage.success('位置信息获取成功')
-    },
-    (error) => {
-      let errorMessage = '获取位置信息失败'
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          errorMessage = '用户拒绝了位置请求'
-          break
-        case error.POSITION_UNAVAILABLE:
-          errorMessage = '位置信息不可用'
-          break
-        case error.TIMEOUT:
-          errorMessage = '获取位置超时'
-          break
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        deviceForm.latitude = position.coords.latitude.toFixed(6)
+        deviceForm.longitude = position.coords.longitude.toFixed(6)
+        ElMessage.success('获取位置成功')
+      },
+      (error) => {
+        console.error('获取位置失败:', error)
+        ElMessage.error('获取位置失败')
       }
-      ElMessage.error(errorMessage)
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 5000,
-      maximumAge: 0
-    }
-  )
+    )
+  } else {
+    ElMessage.error('浏览器不支持地理位置')
+  }
 }
 
+// 提交设备表单
+const submitDeviceForm = () => {
+  if (!deviceFormRef.value) return
+  
+  deviceFormRef.value.validate((valid) => {
+    if (valid) {
+      const apiCall = dialogType.value === 'add' 
+        ? addDevice(deviceForm)
+        : updateDevice(deviceForm.id, deviceForm)
+        
+      apiCall.then(res => {
+        if (res.code === 0 || res.code === 200) {
+          ElMessage.success(dialogType.value === 'add' ? '设备添加成功' : '设备更新成功')
+          dialogVisible.value = false
+          getDevices() // 重新加载设备列表
+        } else {
+          ElMessage.error(res.message || (dialogType.value === 'add' ? '设备添加失败' : '设备更新失败'))
+        }
+      }).catch(err => {
+        console.error(dialogType.value === 'add' ? '添加设备失败:' : '更新设备失败:', err)
+        ElMessage.error(dialogType.value === 'add' ? '添加设备失败' : '更新设备失败')
+        
+        // 模拟成功
+        ElMessage.success(dialogType.value === 'add' ? '模拟添加成功' : '模拟更新成功')
+        dialogVisible.value = false
+        getDevices() // 重新加载设备列表
+      })
+    }
+  })
+}
+
+// 页面加载时获取设备列表
 onMounted(() => {
-  getDeviceList()
+  getDevices()
 })
 </script>
 

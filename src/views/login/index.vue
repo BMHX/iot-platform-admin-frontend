@@ -81,6 +81,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../../stores/user'
+import { login } from '../../api/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -123,79 +124,107 @@ const handleLogin = () => {
     if (valid) {
       loading.value = true
       
-      // 模拟登录请求
-      setTimeout(() => {
-        // 管理员账号
-        if (loginForm.username === 'admin' && loginForm.password === '123456') {
-          // 登录成功
-          const token = 'mock_token_admin_' + Date.now()
-          userStore.setToken(token)
-          
-          // 设置用户信息
-          userStore.setUserInfo({
-            username: loginForm.username,
-            avatar: '',
-            role: 'admin'
-          })
-          
-          ElMessage.success('管理员登录成功')
-          router.push('/')
-        } 
-        // 普通用户账号
-        else if (loginForm.username === 'user' && loginForm.password === '123456') {
-          // 登录成功
-          const token = 'mock_token_user_' + Date.now()
-          userStore.setToken(token)
-          
-          // 设置用户信息
-          userStore.setUserInfo({
-            username: loginForm.username,
-            avatar: '',
-            role: 'user'
-          })
-          
-          ElMessage.success('普通用户登录成功')
-          router.push('/')
-        }
-        // 租户账号
-        else if (loginForm.username === 'tenant' && loginForm.password === '123456') {
-          // 登录成功
-          const token = 'mock_token_tenant_' + Date.now()
-          userStore.setToken(token)
-          
-          // 设置用户信息
-          userStore.setUserInfo({
-            username: loginForm.username,
-            avatar: '',
-            role: 'tenant'
-          })
-          
-          ElMessage.success('租户登录成功')
-          router.push('/')
-        }
-        // 运营人员账号
-        else if (loginForm.username === 'operator' && loginForm.password === '123456') {
-          // 登录成功
-          const token = 'mock_token_operator_' + Date.now()
-          userStore.setToken(token)
-          
-          // 设置用户信息
-          userStore.setUserInfo({
-            username: loginForm.username,
-            avatar: '',
-            role: 'operator'
-          })
-          
-          ElMessage.success('运营人员登录成功')
-          router.push('/')
-        }
-        else {
-          // 登录失败
-          ElMessage.error('用户名或密码错误')
-        }
+      // 真实环境下，应该调用API登录
+      // 在未完成实际API对接前，保留模拟登录逻辑
+      try {
+        // 如果后端接口已就绪，使用以下代码
+        // login({
+        //   username: loginForm.username,
+        //   password: loginForm.password
+        // }).then(res => {
+        //   if (res.code === 0 || res.code === 200) {
+        //     // 登录成功
+        //     userStore.setToken(res.data.token)
+        //     userStore.setUserInfo(res.data.userInfo)
+        //     ElMessage.success('登录成功')
+        //     router.push('/')
+        //   } else {
+        //     ElMessage.error(res.message || '登录失败')
+        //   }
+        //   loading.value = false
+        // }).catch(err => {
+        //   ElMessage.error(err.message || '登录失败')
+        //   loading.value = false
+        // })
         
+        // 模拟登录请求
+        setTimeout(() => {
+          // 管理员账号
+          if (loginForm.username === 'admin' && loginForm.password === '123456') {
+            // 登录成功
+            const token = 'mock_token_admin_' + Date.now()
+            userStore.setToken(token)
+            
+            // 设置用户信息
+            userStore.setUserInfo({
+              username: loginForm.username,
+              avatar: '',
+              role: 'admin'
+            })
+            
+            ElMessage.success('管理员登录成功')
+            router.push('/')
+          } 
+          // 普通用户账号
+          else if (loginForm.username === 'user' && loginForm.password === '123456') {
+            // 登录成功
+            const token = 'mock_token_user_' + Date.now()
+            userStore.setToken(token)
+            
+            // 设置用户信息
+            userStore.setUserInfo({
+              username: loginForm.username,
+              avatar: '',
+              role: 'user'
+            })
+            
+            ElMessage.success('普通用户登录成功')
+            router.push('/')
+          }
+          // 租户账号
+          else if (loginForm.username === 'tenant' && loginForm.password === '123456') {
+            // 登录成功
+            const token = 'mock_token_tenant_' + Date.now()
+            userStore.setToken(token)
+            
+            // 设置用户信息
+            userStore.setUserInfo({
+              username: loginForm.username,
+              avatar: '',
+              role: 'tenant'
+            })
+            
+            ElMessage.success('租户登录成功')
+            router.push('/')
+          }
+          // 运营人员账号
+          else if (loginForm.username === 'operator' && loginForm.password === '123456') {
+            // 登录成功
+            const token = 'mock_token_operator_' + Date.now()
+            userStore.setToken(token)
+            
+            // 设置用户信息
+            userStore.setUserInfo({
+              username: loginForm.username,
+              avatar: '',
+              role: 'operator'
+            })
+            
+            ElMessage.success('运营人员登录成功')
+            router.push('/')
+          }
+          else {
+            // 登录失败
+            ElMessage.error('用户名或密码错误')
+          }
+          
+          loading.value = false
+        }, 1000)
+      } catch (error) {
+        console.error('登录错误:', error)
+        ElMessage.error('登录请求失败')
         loading.value = false
-      }, 1000)
+      }
     }
   })
 }
