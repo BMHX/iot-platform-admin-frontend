@@ -15,7 +15,7 @@
         </template>
       </el-input>
     </div>
-    
+
     <!-- 表格 -->
     <el-table
       v-loading="loading"
@@ -36,18 +36,6 @@
           </el-tag>
         </template>
       </el-table-column>
-      <!-- 动态属性列 -->
-      <el-table-column 
-        v-for="attr in displayableAttributes" 
-        :key="attr.id" 
-        :prop="`attributes.${attr.code}`" 
-        :label="attr.name"
-        :width="attr.width || 120"
-      >
-        <template #default="scope">
-          {{ getAttributeValue(scope.row, attr) }}
-        </template>
-      </el-table-column>
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="scope">
           <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
@@ -59,7 +47,7 @@
         </template>
       </el-table-column>
     </el-table>
-    
+
     <!-- 分页 -->
     <div class="pagination-container">
       <el-pagination
@@ -72,7 +60,7 @@
         @current-change="handleCurrentChange"
       />
     </div>
-    
+
     <!-- 对话框 -->
     <el-dialog
       v-model="dialogVisible"
@@ -103,80 +91,6 @@
             <el-option label="禁用" value="inactive" />
           </el-select>
         </el-form-item>
-        
-        <!-- 动态属性表单项 -->
-        <div v-for="attr in attributeDefinitions" :key="attr.id">
-          <el-form-item :label="attr.name" :prop="`attributes.${attr.code}`">
-            <!-- 字符串类型 -->
-            <el-input 
-              v-if="attr.dataType === 'string'" 
-              v-model="schoolForm.attributes[attr.code]" 
-              :placeholder="`请输入${attr.name}`"
-            />
-            
-            <!-- 数字类型 -->
-            <el-input-number 
-              v-else-if="attr.dataType === 'integer' || attr.dataType === 'decimal'" 
-              v-model="schoolForm.attributes[attr.code]" 
-              :precision="attr.dataType === 'decimal' ? 2 : 0"
-              :step="attr.dataType === 'decimal' ? 0.1 : 1"
-              :placeholder="`请输入${attr.name}`"
-            />
-            
-            <!-- 布尔类型 -->
-            <el-switch 
-              v-else-if="attr.dataType === 'boolean'" 
-              v-model="schoolForm.attributes[attr.code]" 
-            />
-            
-            <!-- 日期类型 -->
-            <el-date-picker 
-              v-else-if="attr.dataType === 'date'" 
-              v-model="schoolForm.attributes[attr.code]" 
-              type="date" 
-              :placeholder="`请选择${attr.name}`"
-            />
-            
-            <!-- 日期时间类型 -->
-            <el-date-picker 
-              v-else-if="attr.dataType === 'datetime'" 
-              v-model="schoolForm.attributes[attr.code]" 
-              type="datetime" 
-              :placeholder="`请选择${attr.name}`"
-            />
-            
-            <!-- 枚举类型 -->
-            <el-select 
-              v-else-if="attr.dataType === 'enum'" 
-              v-model="schoolForm.attributes[attr.code]" 
-              :placeholder="`请选择${attr.name}`"
-            >
-              <el-option 
-                v-for="option in parseOptions(attr.options)" 
-                :key="option.value" 
-                :label="option.label" 
-                :value="option.value" 
-              />
-            </el-select>
-            
-            <!-- 文本类型 -->
-            <el-input 
-              v-else-if="attr.dataType === 'text'" 
-              v-model="schoolForm.attributes[attr.code]" 
-              type="textarea" 
-              :rows="3" 
-              :placeholder="`请输入${attr.name}`"
-            />
-            
-            <!-- 默认为字符串输入 -->
-            <el-input 
-              v-else 
-              v-model="schoolForm.attributes[attr.code]" 
-              :placeholder="`请输入${attr.name}`"
-            />
-          </el-form-item>
-        </div>
-        
         <el-form-item label="备注">
           <el-input v-model="schoolForm.remark" type="textarea" rows="3" />
         </el-form-item>
@@ -192,17 +106,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch, computed } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
-import { 
-  getTenantList, 
-  addTenant, 
-  updateTenant, 
-  deleteTenant, 
-  getAttributeDefinitionsByTypeId,
-  getAttributeValuesByTenantId
-} from '../../../api/tenant'
+import { getTenantList, addTenant, updateTenant, deleteTenant } from '../../../api/tenant'
 
 // 定义组件接收的属性
 const props = defineProps({
@@ -246,117 +153,8 @@ const schoolForm = reactive({
   contactPhone: '',
   status: 'active',
   remark: '',
-  regionCode: '',
-  attributes: {} // 存储动态属性值
+  regionCode: ''
 })
-
-// 属性定义
-const attributeDefinitions = ref([])
-const attributeLoading = ref(false)
-
-// 可显示在表格中的属性（过滤一些不适合在表格中显示的属性类型）
-const displayableAttributes = computed(() => {
-  return attributeDefinitions.value.filter(attr => 
-    ['string', 'integer', 'decimal', 'enum', 'boolean'].includes(attr.dataType)
-  )
-})
-
-// 获取属性定义
-const fetchAttributeDefinitions = async () => {
-  if (!schoolTypeId.value) return
-  
-  attributeLoading.value = true
-  try {
-    const res = await getAttributeDefinitionsByTypeId(schoolTypeId.value)
-    if (res.code === 0 || res.code === 200) {
-      attributeDefinitions.value = res.data || []
-    } else {
-      console.error('获取属性定义失败:', res.message)
-    }
-  } catch (err) {
-    console.error('获取属性定义错误:', err)
-    // 使用模拟数据
-    useMockAttributeDefinitions()
-  } finally {
-    attributeLoading.value = false
-  }
-}
-
-// 使用模拟属性定义数据
-const useMockAttributeDefinitions = () => {
-  attributeDefinitions.value = [
-    {
-      id: 1,
-      typeId: schoolTypeId.value,
-      code: 'schoolType',
-      name: '学校类型',
-      description: '学校类型描述',
-      dataType: 'enum',
-      isRequired: true,
-      defaultValue: 'primary',
-      options: JSON.stringify([
-        { label: '小学', value: 'primary' },
-        { label: '中学', value: 'middle' },
-        { label: '高中', value: 'high' },
-        { label: '大学', value: 'university' }
-      ]),
-      status: 'active'
-    },
-    {
-      id: 2,
-      typeId: schoolTypeId.value,
-      code: 'studentCount',
-      name: '学生数量',
-      description: '学校学生总数',
-      dataType: 'integer',
-      isRequired: false,
-      defaultValue: '0',
-      options: null,
-      status: 'active'
-    },
-    {
-      id: 3,
-      typeId: schoolTypeId.value,
-      code: 'foundingYear',
-      name: '建校年份',
-      description: '学校成立年份',
-      dataType: 'integer',
-      isRequired: false,
-      defaultValue: null,
-      options: null,
-      status: 'active'
-    }
-  ]
-}
-
-// 解析选项字符串为对象数组
-const parseOptions = (optionsStr) => {
-  if (!optionsStr) return []
-  try {
-    return JSON.parse(optionsStr)
-  } catch (err) {
-    console.error('解析选项错误:', err)
-    return []
-  }
-}
-
-// 获取属性值
-const getAttributeValue = (row, attr) => {
-  if (!row.attributes || !row.attributes[attr.code]) return '-'
-  
-  const value = row.attributes[attr.code]
-  
-  // 根据属性类型格式化显示
-  if (attr.dataType === 'enum') {
-    const options = parseOptions(attr.options)
-    const option = options.find(opt => opt.value === value)
-    return option ? option.label : value
-  } else if (attr.dataType === 'boolean') {
-    return value ? '是' : '否'
-  }
-  
-  return value
-}
 
 // 表单验证规则
 const rules = {
@@ -386,33 +184,18 @@ const getSchoolList = () => {
   }).then(res => {
     if (res.code === 0 || res.code === 200) {
       // 处理返回的数据格式，适配前端显示
-      const list = (res.data.list || []).map(item => ({
+      schoolList.value = (res.data.list || []).map(item => ({
         ...item,
         // 确保状态字段格式一致
         status: item.status || 'active',
         // 如果后端返回的设备数量为null，则显示为0
-        deviceCount: item.deviceCount || 0,
-        // 初始化属性对象
-        attributes: {}
+        deviceCount: item.deviceCount || 0
       }))
-      
-      // 获取每个租户的属性值
-      Promise.all(list.map(tenant => loadTenantAttributes(tenant)))
-        .then(() => {
-          schoolList.value = list
-          total.value = res.data.total || 0
-          loading.value = false
-        })
-        .catch(err => {
-          console.error('获取租户属性值失败:', err)
-          schoolList.value = list
-          total.value = res.data.total || 0
-          loading.value = false
-        })
+      total.value = res.data.total || 0
     } else {
       ElMessage.error(res.message || `获取${props.tenantTypeName}列表失败`)
-      loading.value = false
     }
+    loading.value = false
   }).catch(err => {
     console.error(`获取${props.tenantTypeName}列表失败:`, err)
     ElMessage.error(`获取${props.tenantTypeName}列表失败`)
@@ -423,66 +206,11 @@ const getSchoolList = () => {
   })
 }
 
-// 加载租户的属性值
-const loadTenantAttributes = async (tenant) => {
-  try {
-    const res = await getAttributeValuesByTenantId(tenant.id)
-    if (res.code === 0 || res.code === 200) {
-      const attrValues = res.data || []
-      
-      // 将属性值转换为对象格式
-      const attributes = {}
-      attrValues.forEach(attr => {
-        // 查找对应的属性定义
-        const definition = attributeDefinitions.value.find(def => def.id === attr.attrId)
-        if (definition) {
-          attributes[definition.code] = attr.value
-        }
-      })
-      
-      tenant.attributes = attributes
-    }
-  } catch (err) {
-    console.error(`获取租户(${tenant.id})属性值失败:`, err)
-    // 使用模拟属性值
-    tenant.attributes = generateMockAttributes(tenant.id)
-  }
-}
-
-// 生成模拟属性值
-const generateMockAttributes = (tenantId) => {
-  const attributes = {}
-  
-  attributeDefinitions.value.forEach(attr => {
-    if (attr.dataType === 'string') {
-      attributes[attr.code] = `测试${attr.name}${tenantId}`
-    } else if (attr.dataType === 'integer') {
-      attributes[attr.code] = Math.floor(Math.random() * 1000)
-    } else if (attr.dataType === 'decimal') {
-      attributes[attr.code] = (Math.random() * 100).toFixed(2)
-    } else if (attr.dataType === 'boolean') {
-      attributes[attr.code] = Math.random() > 0.5
-    } else if (attr.dataType === 'enum') {
-      const options = parseOptions(attr.options)
-      if (options.length > 0) {
-        const randomIndex = Math.floor(Math.random() * options.length)
-        attributes[attr.code] = options[randomIndex].value
-      }
-    } else if (attr.dataType === 'date' || attr.dataType === 'datetime') {
-      attributes[attr.code] = new Date().toISOString()
-    } else if (attr.dataType === 'text') {
-      attributes[attr.code] = `这是一段测试${attr.name}的文本内容。`
-    }
-  })
-  
-  return attributes
-}
-
 // 使用模拟数据
 const useMockData = () => {
   // 模拟数据
   const mockData = Array(15).fill(0).map((_, index) => {
-    const tenant = {
+    return {
       id: index + 1,
       typeId: schoolTypeId.value,
       name: `测试${props.tenantTypeName}${index + 1}`,
@@ -491,11 +219,8 @@ const useMockData = () => {
       contactPhone: `1389999${String(index + 1).padStart(4, '0')}`,
       status: index % 3 === 0 ? 'inactive' : 'active',
       deviceCount: Math.floor(Math.random() * 100),
-      remark: `这是测试${props.tenantTypeName}${index + 1}的备注信息`,
-      attributes: generateMockAttributes(index + 1)
+      remark: `这是测试${props.tenantTypeName}${index + 1}的备注信息`
     }
-    
-    return tenant
   })
   
   // 分页处理
@@ -503,8 +228,8 @@ const useMockData = () => {
   const end = start + query.limit
   schoolList.value = mockData.slice(start, end)
   total.value = mockData.length
-  
-  loading.value = false
+    
+    loading.value = false
 }
 
 // 监听属性变化
@@ -513,18 +238,12 @@ watch(() => props.tenantTypeId, (newVal) => {
     schoolTypeId.value = newVal
     query.typeId = newVal
     schoolForm.typeId = newVal
-    
-    // 获取属性定义
-    fetchAttributeDefinitions().then(() => {
-      // 获取租户列表
-      getSchoolList()
-    })
+    getSchoolList()
   } else {
     // 未传入租户类型ID，显示空列表
     schoolList.value = []
     total.value = 0
     loading.value = false
-    attributeDefinitions.value = []
   }
 }, { immediate: true })
 
@@ -559,15 +278,6 @@ const handleAdd = () => {
   schoolForm.status = 'active'
   schoolForm.remark = ''
   schoolForm.regionCode = ''
-  schoolForm.attributes = {} // 清空属性值
-  
-  // 设置默认值
-  attributeDefinitions.value.forEach(attr => {
-    if (attr.defaultValue) {
-      schoolForm.attributes[attr.code] = attr.defaultValue
-    }
-  })
-  
   dialogVisible.value = true
 }
 
@@ -583,10 +293,6 @@ const handleEdit = (row) => {
   schoolForm.status = row.status || 'active'
   schoolForm.remark = row.remark || ''
   schoolForm.regionCode = row.regionCode || ''
-  
-  // 复制属性值
-  schoolForm.attributes = { ...row.attributes }
-  
   dialogVisible.value = true
 }
 
@@ -594,8 +300,8 @@ const handleEdit = (row) => {
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定要删除${props.tenantTypeName}"${row.name}"吗？`, '提示', {
     confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
+      cancelButtonText: '取消',
+      type: 'warning'
   }).then(() => {
     // 调用删除API
     deleteTenant([row.id]).then(res => {
@@ -639,9 +345,11 @@ const submitForm = () => {
         regionCode: schoolForm.regionCode || ''
       }
       
+      console.log(`准备${dialogType.value === 'add' ? '添加' : '修改'}${props.tenantTypeName}:`, submitData)
+      
       const apiCall = dialogType.value === 'add' 
         ? addTenant(submitData)
-        : updateTenant(submitData.id, submitData)
+        : updateTenant(submitData)
       
       apiCall.then(res => {
         if (res.code === 0 || res.code === 200) {
@@ -649,7 +357,7 @@ const submitForm = () => {
           dialogVisible.value = false
           getSchoolList()
         } else {
-          ElMessage.error(res.message || (dialogType.value === 'add' ? '添加失败' : '修改失败'))
+          ElMessage.error(res.message || res.msg || (dialogType.value === 'add' ? '添加失败' : '修改失败'))
         }
       }).catch(err => {
         console.error(dialogType.value === 'add' ? `添加${props.tenantTypeName}失败:` : `修改${props.tenantTypeName}失败:`, err)
@@ -667,11 +375,7 @@ const submitForm = () => {
 // 初始化
 onMounted(() => {
   if (schoolTypeId.value) {
-    // 获取属性定义
-    fetchAttributeDefinitions().then(() => {
-      // 获取租户列表
-      getSchoolList()
-    })
+  getSchoolList()
   }
 })
 </script>

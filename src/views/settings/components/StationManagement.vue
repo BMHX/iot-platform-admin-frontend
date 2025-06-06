@@ -15,7 +15,7 @@
         </template>
       </el-input>
     </div>
-    
+
     <!-- 表格 -->
     <el-table
       v-loading="loading"
@@ -47,7 +47,7 @@
         </template>
       </el-table-column>
     </el-table>
-    
+
     <!-- 分页 -->
     <div class="pagination-container">
       <el-pagination
@@ -60,7 +60,7 @@
         @current-change="handleCurrentChange"
       />
     </div>
-    
+
     <!-- 对话框 -->
     <el-dialog
       v-model="dialogVisible"
@@ -218,8 +218,8 @@ const useMockData = () => {
   const end = start + query.limit
   stationList.value = mockData.slice(start, end)
   total.value = mockData.length
-  
-  loading.value = false
+    
+    loading.value = false
 }
 
 // 监听属性变化
@@ -290,8 +290,8 @@ const handleEdit = (row) => {
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定要删除${props.tenantTypeName}"${row.name}"吗？`, '提示', {
     confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
+      cancelButtonText: '取消',
+      type: 'warning'
   }).then(() => {
     // 调用删除API
     deleteTenant([row.id]).then(res => {
@@ -329,7 +329,7 @@ const submitForm = () => {
           ElMessage.success(dialogType.value === 'add' ? '添加成功' : '修改成功')
           dialogVisible.value = false
           getStationList()
-        } else {
+      } else {
           ElMessage.error(res.message || (dialogType.value === 'add' ? '添加失败' : '修改失败'))
         }
       }).catch(err => {
@@ -338,7 +338,7 @@ const submitForm = () => {
         
         // 模拟成功
         ElMessage.success(dialogType.value === 'add' ? '模拟添加成功' : '模拟修改成功')
-        dialogVisible.value = false
+      dialogVisible.value = false
         getStationList()
       })
     }
@@ -348,7 +348,7 @@ const submitForm = () => {
 // 初始化
 onMounted(() => {
   if (stationTypeId.value) {
-    getStationList()
+  getStationList()
   }
 })
 </script>

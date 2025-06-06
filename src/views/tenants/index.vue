@@ -10,8 +10,8 @@
       
       <div v-if="loading" class="loading-container">
         <el-skeleton :rows="3" animated />
-      </div>
-      
+            </div>
+        
       <el-tabs v-else type="border-card">
         <el-tab-pane v-for="type in tenantTypes" :key="type.id">
           <template #label>
@@ -22,7 +22,7 @@
               <span>{{ type.name }}</span>
             </div>
           </template>
-          
+        
           <!-- 根据租户类型动态加载对应的组件 -->
           <component 
             :is="getComponentByType(type.name)" 

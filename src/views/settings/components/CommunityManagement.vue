@@ -15,7 +15,7 @@
         </template>
       </el-input>
     </div>
-    
+
     <!-- 表格 -->
     <el-table
       v-loading="loading"
@@ -47,7 +47,7 @@
         </template>
       </el-table-column>
     </el-table>
-    
+
     <!-- 分页 -->
     <div class="pagination-container">
       <el-pagination
@@ -60,7 +60,7 @@
         @current-change="handleCurrentChange"
       />
     </div>
-    
+
     <!-- 对话框 -->
     <el-dialog
       v-model="dialogVisible"
@@ -178,39 +178,14 @@ const getCommunityList = () => {
   
   loading.value = true
   // 调用租户API获取小区类型的租户
-  getTenantList({
-    ...query,
-    typeId: communityTypeId.value // 确保使用最新的租户类型ID
-  }).then(res => {
+  getTenantList(query).then(res => {
     if (res.code === 0 || res.code === 200) {
-      // 处理返回的数据格式，适配前端显示
-      const list = (res.data.list || []).map(item => ({
-        ...item,
-        // 确保状态字段格式一致
-        status: item.status || 'active',
-        // 如果后端返回的设备数量为null，则显示为0
-        deviceCount: item.deviceCount || 0,
-        // 初始化属性对象
-        attributes: {}
-      }))
-      
-      // 获取每个租户的属性值
-      Promise.all(list.map(tenant => loadTenantAttributes(tenant)))
-        .then(() => {
-          communityList.value = list
-          total.value = res.data.total || 0
-          loading.value = false
-        })
-        .catch(err => {
-          console.error('获取租户属性值失败:', err)
-          communityList.value = list
-          total.value = res.data.total || 0
-          loading.value = false
-        })
+      communityList.value = res.data.list || []
+      total.value = res.data.total || 0
     } else {
       ElMessage.error(res.message || `获取${props.tenantTypeName}列表失败`)
-      loading.value = false
     }
+    loading.value = false
   }).catch(err => {
     console.error(`获取${props.tenantTypeName}列表失败:`, err)
     ElMessage.error(`获取${props.tenantTypeName}列表失败`)
@@ -243,8 +218,8 @@ const useMockData = () => {
   const end = start + query.limit
   communityList.value = mockData.slice(start, end)
   total.value = mockData.length
-  
-  loading.value = false
+    
+    loading.value = false
 }
 
 // 监听属性变化
@@ -315,8 +290,8 @@ const handleEdit = (row) => {
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定要删除${props.tenantTypeName}"${row.name}"吗？`, '提示', {
     confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
+      cancelButtonText: '取消',
+      type: 'warning'
   }).then(() => {
     // 调用删除API
     deleteTenant([row.id]).then(res => {
@@ -354,7 +329,7 @@ const submitForm = () => {
           ElMessage.success(dialogType.value === 'add' ? '添加成功' : '修改成功')
           dialogVisible.value = false
           getCommunityList()
-        } else {
+      } else {
           ElMessage.error(res.message || (dialogType.value === 'add' ? '添加失败' : '修改失败'))
         }
       }).catch(err => {
@@ -363,7 +338,7 @@ const submitForm = () => {
         
         // 模拟成功
         ElMessage.success(dialogType.value === 'add' ? '模拟添加成功' : '模拟修改成功')
-        dialogVisible.value = false
+      dialogVisible.value = false
         getCommunityList()
       })
     }
@@ -373,7 +348,7 @@ const submitForm = () => {
 // 初始化
 onMounted(() => {
   if (communityTypeId.value) {
-    getCommunityList()
+  getCommunityList()
   }
 })
 </script>

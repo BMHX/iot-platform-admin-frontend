@@ -13,6 +13,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8086',
         changeOrigin: true,
+        secure: false,
         // 保留 /api 路径
         // rewrite: (path) => path.replace(/^\/api/, '')
       },
@@ -20,6 +21,7 @@ export default defineConfig({
       '/iot': {
         target: 'http://localhost:8086',
         changeOrigin: true,
+        secure: false,
         // 保留 /iot 路径
         // rewrite: (path) => path.replace(/^\/iot/, '')
       }

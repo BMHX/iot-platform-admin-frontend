@@ -51,45 +51,54 @@
       <el-table-column type="selection" width="50" />
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="username" label="用户名" width="120" />
-      <el-table-column prop="name" label="姓名" width="120" />
-      <el-table-column prop="role" label="角色" width="120">
+      <el-table-column prop="name" label="姓名" width="120">
+        <template #default="scope">
+          {{ scope.row.name || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="identity" label="角色" width="120">
         <template #default="scope">
           <el-tag 
-            :type="scope.row.role === '超级管理员' ? 'danger' : 
-                  scope.row.role === '系统管理员' ? 'warning' : 
-                  scope.row.role === '租户管理员' ? 'success' : 'info'"
+            :type="scope.row.identity === '超级管理员' ? 'danger' : 
+                  scope.row.identity === '系统管理员' ? 'warning' : 
+                  scope.row.identity === '租户管理员' ? 'success' : 'info'"
           >
-            {{ scope.row.role }}
+            {{ scope.row.identity || '-' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="tenantType" label="管理范围" width="100">
+      <el-table-column prop="permissionId" label="权限套餐" width="120">
         <template #default="scope">
-          <el-tag 
-            :type="scope.row.tenantType === 'platform' ? 'danger' : 
-                  scope.row.tenantType === 'school' ? 'success' : 
-                  scope.row.tenantType === 'community' ? 'warning' : 'info'"
-          >
-            {{ scope.row.tenantType === 'platform' ? '平台级' : 
-               scope.row.tenantType === 'school' ? '学校' : 
-               scope.row.tenantType === 'community' ? '小区' : '驿站' }}
-          </el-tag>
+          {{ getPermissionPackageName(scope.row.permissionId) }}
         </template>
       </el-table-column>
-      <el-table-column prop="email" label="邮箱" width="180" />
-      <el-table-column prop="phone" label="手机号" width="130" />
-      <el-table-column label="状态" width="100">
+      <el-table-column prop="email" label="邮箱" width="180">
+        <template #default="scope">
+          {{ scope.row.email || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="phone" label="手机号" width="130">
+        <template #default="scope">
+          {{ scope.row.phone || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="status" label="状态" width="100">
         <template #default="scope">
           <el-switch
             v-model="scope.row.status"
             :active-value="'enabled'"
             :inactive-value="'disabled'"
-            @change="handleStatusChange(scope.row)"
+            @change="() => handleStatusChange(scope.row)"
+            :disabled="!scope.row.hasOwnProperty('status')"
           />
         </template>
       </el-table-column>
-      <el-table-column prop="lastLoginTime" label="最后登录时间" width="180" />
-      <el-table-column label="操作" width="220">
+      <el-table-column prop="lastLoginTime" label="最后登录时间" width="180">
+        <template #default="scope">
+          {{ scope.row.lastLoginTime || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="220" fixed="right">
         <template #default="scope">
           <el-button size="small" type="primary" @click="handleEdit(scope.row)">编辑</el-button>
           <el-button size="small" type="danger" @click="handleDelete(scope.row)">删除</el-button>
@@ -137,52 +146,37 @@
             <el-option label="数据查看员" value="数据查看员" />
           </el-select>
         </el-form-item>
+        <el-form-item label="权限套餐" prop="permissionId">
+          <el-select v-model="adminForm.permissionId" placeholder="请选择权限套餐" style="width: 100%">
+            <el-option 
+              v-for="item in permissionPackages" 
+              :key="item.id" 
+              :label="item.permissionName" 
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="管理范围" prop="tenantType">
           <el-select v-model="adminForm.tenantType" placeholder="请选择管理范围" style="width: 100%" @change="handleTenantTypeChange">
             <el-option label="平台级" value="platform" :disabled="!isPlatformRole" />
-            <el-option label="学校" value="school" :disabled="isPlatformRole" />
-            <el-option label="小区" value="community" :disabled="isPlatformRole" />
-            <el-option label="驿站" value="station" :disabled="isPlatformRole" />
+            <el-option 
+              v-for="item in tenantTypeOptions" 
+              :key="item.value" 
+              :label="item.label" 
+              :value="item.value" 
+              :disabled="isPlatformRole" 
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="租户选择" prop="tenantIds" v-if="adminForm.tenantType !== 'platform'">
           <el-select v-model="adminForm.tenantIds" multiple placeholder="请选择具体租户" style="width: 100%">
-            <el-option-group v-if="adminForm.tenantType === 'school'" label="学校">
-              <el-option 
-                v-for="item in schoolOptions" 
-                :key="item.value" 
-                :label="item.label" 
-                :value="item.value" 
-              />
-            </el-option-group>
-            <el-option-group v-if="adminForm.tenantType === 'community'" label="小区">
-              <el-option 
-                v-for="item in communityOptions" 
-                :key="item.value" 
-                :label="item.label" 
-                :value="item.value" 
-              />
-            </el-option-group>
-            <el-option-group v-if="adminForm.tenantType === 'station'" label="驿站">
-              <el-option 
-                v-for="item in stationOptions" 
-                :key="item.value" 
-                :label="item.label" 
-                :value="item.value" 
-              />
-            </el-option-group>
+            <el-option
+              v-for="item in getTenantOptionsByType(adminForm.tenantType)"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
-        </el-form-item>
-        <el-form-item label="权限" prop="permissionIds">
-          <el-transfer
-            v-model="adminForm.permissionIds"
-            :data="permissionOptions"
-            :titles="['可选权限', '已选权限']"
-            :props="{
-              key: 'id',
-              label: 'name'
-            }"
-          />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="adminForm.email" />
@@ -192,8 +186,8 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="adminForm.status">
-            <el-radio label="enabled">启用</el-radio>
-            <el-radio label="disabled">禁用</el-radio>
+            <el-radio :value="'enabled'">启用</el-radio>
+            <el-radio :value="'disabled'">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item v-if="dialogType === 'add'" label="密码" prop="password">
@@ -243,6 +237,41 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAdminList, addAdmin, updateAdmin, deleteAdmin, assignAdminPermission, getAdminDetail } from '../../../api/admin'
+import { getAllPrices } from '../../../api/permission'
+import { getAllTenantTypes, getTenantsByType, getAllTenantDetails } from '../../../api/tenant'
+import request from '../../../utils/request'
+
+// 本地存储管理员租户信息的键名前缀
+const ADMIN_TENANT_INFO_KEY = 'admin_tenant_info_'
+
+// 保存管理员的租户信息到本地存储
+const saveAdminTenantInfo = (adminId, tenantType, tenantIds) => {
+  const key = `${ADMIN_TENANT_INFO_KEY}${adminId}`
+  const data = {
+    tenantType,
+    tenantIds
+  }
+  localStorage.setItem(key, JSON.stringify(data))
+  console.log('保存管理员租户信息到本地存储:', adminId, data)
+}
+
+// 从本地存储获取管理员的租户信息
+const getAdminTenantInfoFromStorage = (adminId) => {
+  const key = `${ADMIN_TENANT_INFO_KEY}${adminId}`
+  const data = localStorage.getItem(key)
+  if (data) {
+    try {
+      const parsed = JSON.parse(data)
+      console.log('从本地存储获取管理员租户信息:', adminId, parsed)
+      return parsed
+    } catch (e) {
+      console.error('解析本地存储的管理员租户信息失败:', e)
+      return null
+    }
+  }
+  return null
+}
 
 // 列表数据
 const loading = ref(false)
@@ -266,7 +295,7 @@ const adminForm = reactive({
   role: '',
   tenantType: '',
   tenantIds: [],
-  permissionIds: [],
+  permissionId: '',
   email: '',
   phone: '',
   status: 'enabled',
@@ -290,42 +319,27 @@ const resetPwdForm = reactive({
 })
 const currentAdmin = ref(null)
 
-// 租户选项
-const schoolOptions = ref([
-  { value: '1', label: '第一中学' },
-  { value: '2', label: '第二中学' },
-  { value: '3', label: '实验中学' }
-])
-const communityOptions = ref([
-  { value: '4', label: '阳光小区' },
-  { value: '5', label: '和谐花园' },
-  { value: '6', label: '幸福家园' }
-])
-const stationOptions = ref([
-  { value: '7', label: '中央驿站' },
-  { value: '8', label: '东部驿站' },
-  { value: '9', label: '西部驿站' }
-])
+// 租户类型选项
+const tenantTypeOptions = ref([])
+
+// 租户类型映射
+const tenantTypeMap = ref({})
+
+// 所有租户选项，按类型分组
+const tenantOptionsByType = ref({})
 
 // 权限选项
-const permissionOptions = ref([
-  { id: '1', name: '系统管理-查看' },
-  { id: '2', name: '系统管理-编辑' },
-  { id: '3', name: '系统管理-删除' },
-  { id: '4', name: '租户管理-查看' },
-  { id: '5', name: '租户管理-编辑' },
-  { id: '6', name: '租户管理-删除' },
-  { id: '7', name: '设备管理-查看' },
-  { id: '8', name: '设备管理-编辑' },
-  { id: '9', name: '设备管理-删除' },
-  { id: '10', name: '数据分析-查看' },
-  { id: '11', name: '告警管理-查看' },
-  { id: '12', name: '告警管理-处理' },
-  { id: '13', name: '统计管理-查看' },
-  { id: '14', name: '统计管理-导出' },
-  { id: '15', name: 'App管理-查看' },
-  { id: '16', name: 'App管理-编辑' }
-])
+const permissionPackages = ref([])
+
+// 根据ID获取租户类型字符串
+const getTenantTypeString = (typeId) => {
+  return tenantTypeMap.value[typeId] || typeId
+}
+
+// 根据字符串获取租户类型ID
+const getTenantTypeId = (typeString) => {
+  return tenantTypeMap.value[typeString] || typeString
+}
 
 // 表单验证规则
 const validatePass = (rule, value, callback) => {
@@ -415,77 +429,164 @@ const resetPwdRules = {
 // 获取管理员列表
 const fetchAdminList = () => {
   loading.value = true
-  // 这里应该调用API获取数据
-  // 模拟数据
-  setTimeout(() => {
-    adminList.value = [
-      {
-        id: 1,
-        username: 'admin',
-        name: '系统管理员',
-        role: '超级管理员',
-        tenantType: 'platform',
-        email: 'admin@example.com',
-        phone: '13800138000',
-        status: 'enabled',
-        lastLoginTime: '2023-05-27 10:30:00',
-        permissionIds: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16']
-      },
-      {
-        id: 2,
-        username: 'operator',
-        name: '运维人员',
-        role: '系统管理员',
-        tenantType: 'platform',
-        email: 'operator@example.com',
-        phone: '13800138001',
-        status: 'enabled',
-        lastLoginTime: '2023-05-26 16:45:00',
-        permissionIds: ['1', '4', '7', '10', '11', '13', '15']
-      },
-      {
-        id: 3,
-        username: 'school_admin',
-        name: '学校管理员',
-        role: '租户管理员',
-        tenantType: 'school',
-        tenantIds: ['1', '2'],
-        email: 'school@example.com',
-        phone: '13800138002',
-        status: 'enabled',
-        lastLoginTime: '2023-05-25 09:15:00',
-        permissionIds: ['4', '7', '10', '11', '13']
-      },
-      {
-        id: 4,
-        username: 'community_admin',
-        name: '小区管理员',
-        role: '租户管理员',
-        tenantType: 'community',
-        tenantIds: ['4'],
-        email: 'community@example.com',
-        phone: '13800138003',
-        status: 'enabled',
-        lastLoginTime: '2023-05-24 14:20:00',
-        permissionIds: ['4', '7', '10', '11', '13']
-      },
-      {
-        id: 5,
-        username: 'viewer',
-        name: '数据查看员',
-        role: '数据查看员',
-        tenantType: 'station',
-        tenantIds: ['7', '8', '9'],
-        email: 'viewer@example.com',
-        phone: '13800138004',
-        status: 'enabled',
-        lastLoginTime: '2023-05-23 11:30:00',
-        permissionIds: ['1', '4', '7', '10', '11', '13']
+  
+  // 构建查询参数
+  const params = {
+    page: currentPage.value,
+    limit: pageSize.value
+  }
+  
+  // 添加搜索条件
+  if (searchQuery.value) {
+    params.username = searchQuery.value
+  }
+  
+  if (roleFilter.value) {
+    params.identity = roleFilter.value
+  }
+  
+  console.log('获取管理员列表，参数：', params)
+  
+  // 调用API获取数据
+  getAdminList(params)
+    .then(res => {
+      console.log('获取管理员列表成功:', res)
+      if (res.code === 0 || res.code === 200) {
+        // 处理后端返回的数据
+        // 后端直接返回了数据数组
+        if (Array.isArray(res.data)) {
+          adminList.value = processAdminList(res.data)
+          total.value = res.data.length
+        } else if (res.data && Array.isArray(res.data.list)) {
+          // 如果返回的是 { list, total } 结构
+          adminList.value = processAdminList(res.data.list)
+          total.value = res.data.total || res.data.list.length
+        } else {
+          // 数据是直接的对象数组，没有嵌套在list属性中
+          adminList.value = processAdminList(res.data)
+          total.value = res.data.length
+        }
+      } else {
+        ElMessage.error(res.message || res.msg || '获取管理员列表失败')
+        adminList.value = []
+        total.value = 0
       }
-    ]
-    total.value = 5
-    loading.value = false
-  }, 500)
+    })
+    .catch(err => {
+      console.error('获取管理员列表失败:', err)
+      ElMessage.error('获取管理员列表失败')
+      adminList.value = []
+      total.value = 0
+    })
+    .finally(() => {
+      loading.value = false
+    })
+}
+
+// 处理管理员列表数据，确保所有需要的字段都存在
+const processAdminList = (list) => {
+  return list.map(item => {
+    // 确保所有需要的字段都存在
+    return {
+      ...item,
+      // 如果缺少字段，使用默认值
+      name: item.name || '',
+      email: item.email || '',
+      phone: item.phone || '',
+      status: item.status || 'enabled',
+      // 如果role字段存在但identity不存在，使用role作为identity
+      identity: item.identity || item.role || '',
+      // 如果后端只返回了id, username, identity字段，添加其他必要字段
+      role: item.role || item.identity || '',
+      permissionId: item.permissionId || null,
+      lastLoginTime: item.lastLoginTime || '-'
+    }
+  })
+}
+
+// 获取权限套餐列表
+const fetchPermissionPackages = () => {
+  getAllPrices()
+    .then(res => {
+      console.log('获取权限套餐列表成功:', res)
+      if (res.code === 0 || res.code === 200) {
+        permissionPackages.value = res.data || []
+      } else {
+        ElMessage.error(res.message || '获取权限套餐列表失败')
+        permissionPackages.value = []
+      }
+    })
+    .catch(err => {
+      console.error('获取权限套餐列表失败:', err)
+      ElMessage.error('获取权限套餐列表失败')
+      permissionPackages.value = []
+    })
+}
+
+// 获取租户选项
+const fetchTenantOptions = () => {
+  // 获取所有租户类型
+  getAllTenantTypes({ page: 1, limit: 100 })
+    .then(res => {
+      if (res.code === 0 || res.code === 200) {
+        const types = res.data?.list || []
+        tenantTypeOptions.value = types.map(item => ({
+          value: item.id.toString(),
+          label: item.name
+        }))
+        
+        // 更新租户类型映射
+        const map = {}
+        types.forEach(type => {
+          // 创建双向映射：ID -> 类型标识，类型标识 -> ID
+          // 使用类型名称的拼音或英文作为标识（如果有）或使用ID作为标识
+          const typeKey = type.code || `type_${type.id}`
+          map[type.id] = typeKey
+          map[typeKey] = type.id.toString()
+        })
+        tenantTypeMap.value = map
+      } else {
+        console.error('获取租户类型失败:', res.message)
+      }
+    })
+    .catch(err => {
+      console.error('获取租户类型失败:', err)
+    })
+
+  // 获取所有租户详情（包含类型分组）
+  getAllTenantDetails()
+    .then(res => {
+      if (res.code === 0 || res.code === 200) {
+        // 处理租户详情数据
+        const tenantDetails = res.data || []
+        const optionsByType = {}
+        
+        // 检查是否是数组
+        if (Array.isArray(tenantDetails)) {
+          // 按类型分组租户
+          tenantDetails.forEach(detail => {
+            const typeId = detail.typeId?.toString()
+            if (typeId) {
+              // 确保tenants是数组
+              const tenants = Array.isArray(detail.tenants) ? detail.tenants : []
+              optionsByType[typeId] = tenants.map(item => ({
+                value: item.id.toString(),
+                label: item.name
+              }))
+            }
+          })
+        } else {
+          console.error('租户详情数据格式错误:', res.data)
+        }
+        
+        tenantOptionsByType.value = optionsByType
+      } else {
+        console.error('获取租户详情失败:', res.message)
+      }
+    })
+    .catch(err => {
+      console.error('获取租户详情失败:', err)
+    })
 }
 
 // 搜索
@@ -529,7 +630,7 @@ const handleAddAdmin = () => {
     role: '',
     tenantType: '',
     tenantIds: [],
-    permissionIds: [],
+    permissionId: '',
     email: '',
     phone: '',
     status: 'enabled',
@@ -549,15 +650,184 @@ const handleRoleChange = (value) => {
   }
 }
 
-// 租户类型变更
-const handleTenantTypeChange = (value) => {
-  adminForm.tenantIds = []
+// 处理租户类型变更
+const handleTenantTypeChange = (type) => {
+  console.log('租户类型变更:', type)
+  
+  // 如果选择了平台级，清空租户选择
+  if (type === 'platform') {
+    adminForm.tenantIds = []
+    return
+  }
+  
+  // 尝试将type转换为ID
+  let typeId = type
+  if (isNaN(type)) {
+    // 如果不是数字，尝试通过映射获取ID
+    typeId = getTenantTypeId(type)
+  }
+  
+  console.log('租户类型ID:', typeId)
+  
+  // 检查是否已经有该类型的租户选项
+  const typeIdStr = typeId?.toString()
+  if (tenantOptionsByType.value[typeIdStr] && tenantOptionsByType.value[typeIdStr].length > 0) {
+    console.log(`已有租户选项(类型ID: ${typeIdStr}):`, tenantOptionsByType.value[typeIdStr])
+    return
+  }
+  
+  // 获取该类型的租户列表
+  if (typeId) {
+    console.log(`正在获取租户列表(类型ID: ${typeId})...`)
+    
+    // 构建查询参数
+    const params = {
+      typeId: typeId,
+      page: 1,
+      limit: 100
+    }
+    
+    getTenantsByType(params)
+      .then(res => {
+        console.log(`获取租户列表成功(类型ID: ${typeId}):`, res)
+        if (res.code === 0 || res.code === 200) {
+          // 处理租户列表数据
+          let tenantList = []
+          
+          // 检查返回数据结构
+          if (Array.isArray(res.data)) {
+            tenantList = res.data
+          } else if (res.data && Array.isArray(res.data.list)) {
+            tenantList = res.data.list
+          }
+          
+          if (Array.isArray(tenantList)) {
+            const formattedTenants = tenantList.map(item => ({
+              value: item.id.toString(),
+              label: item.name
+            }))
+            
+            console.log('格式化后的租户选项:', formattedTenants)
+            
+            // 更新该类型的租户选项
+            tenantOptionsByType.value = {
+              ...tenantOptionsByType.value,
+              [typeIdStr]: formattedTenants
+            }
+          } else {
+            console.error('租户列表数据格式错误:', res.data)
+          }
+        }
+      })
+      .catch(err => {
+        console.error(`获取租户列表失败(类型ID: ${typeId}):`, err)
+      })
+  }
 }
 
 // 编辑管理员
 const handleEdit = (row) => {
   dialogType.value = 'edit'
-  Object.assign(adminForm, { ...row })
+  
+  // 创建一个带有默认值的对象，防止缺少某些属性
+  const defaultAdmin = {
+    id: '',
+    username: '',
+    name: '',
+    role: '', 
+    tenantType: 'platform', // 默认为平台级
+    tenantIds: [],
+    permissionId: '',
+    email: '',
+    phone: '',
+    status: 'enabled',
+    password: '',
+    confirmPassword: ''
+  }
+  
+  // 合并默认值
+  Object.assign(adminForm, defaultAdmin)
+  
+  // 设置基本字段
+  adminForm.id = row.id
+  adminForm.username = row.username
+  
+  // 获取管理员详细信息
+  getAdminDetail(row.id)
+    .then(res => {
+      if (res.code === 0 || res.code === 200) {
+        const adminData = res.data
+        
+        // 更新表单数据
+        adminForm.name = adminData.name || ''
+        adminForm.role = adminData.identity || ''
+        adminForm.permissionId = adminData.permissionId || ''
+        adminForm.email = adminData.email || ''
+        adminForm.phone = adminData.phone || ''
+        adminForm.status = adminData.status || 'enabled'
+        
+        // 处理租户类型和租户选择
+        // 如果是平台级角色
+        if (['超级管理员', '系统管理员'].includes(adminData.identity)) {
+          adminForm.tenantType = 'platform'
+          adminForm.tenantIds = []
+        } 
+        // 如果是非平台级角色，尝试从本地存储获取租户信息
+        else {
+          // 从本地存储获取管理员的租户信息
+          const storedTenantInfo = getAdminTenantInfoFromStorage(row.id)
+          
+          if (storedTenantInfo && storedTenantInfo.tenantType) {
+            // 设置租户类型
+            adminForm.tenantType = storedTenantInfo.tenantType.toString()
+            console.log('编辑管理员 - 从本地存储设置租户类型:', adminForm.tenantType)
+            
+            // 确保租户列表已加载
+            handleTenantTypeChange(adminForm.tenantType)
+            
+            // 设置选中的租户
+            if (storedTenantInfo.tenantIds && Array.isArray(storedTenantInfo.tenantIds)) {
+              adminForm.tenantIds = storedTenantInfo.tenantIds.map(id => id.toString())
+              console.log('编辑管理员 - 从本地存储设置租户IDs:', adminForm.tenantIds)
+            }
+          } else {
+            console.log('本地存储中没有管理员租户信息')
+            
+            // 如果本地存储中没有数据，尝试从row中获取
+            if (row.tenantType) {
+              adminForm.tenantType = row.tenantType.toString()
+              
+              if (row.tenantIds) {
+                adminForm.tenantIds = Array.isArray(row.tenantIds) 
+                  ? row.tenantIds.map(id => id.toString())
+                  : []
+              }
+              
+              // 确保租户列表已加载
+              handleTenantTypeChange(adminForm.tenantType)
+            } else {
+              // 如果没有任何租户信息，设置一个默认的非平台级租户类型
+              // 这里假设第一个租户类型是非平台级的
+              if (tenantTypeOptions.value.length > 0) {
+                const firstTypeOption = tenantTypeOptions.value[0]
+                adminForm.tenantType = firstTypeOption.value
+                console.log('编辑管理员 - 设置默认租户类型:', adminForm.tenantType)
+                
+                // 确保租户列表已加载
+                handleTenantTypeChange(adminForm.tenantType)
+              }
+            }
+          }
+        }
+      } else {
+        ElMessage.error('获取管理员详情失败')
+      }
+    })
+    .catch(err => {
+      console.error('获取管理员详情失败:', err)
+      ElMessage.error('获取管理员详情失败')
+    })
+  
   dialogVisible.value = true
 }
 
@@ -568,9 +838,20 @@ const handleDelete = (row) => {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    // 这里应该调用API删除数据
-    adminList.value = adminList.value.filter(item => item.id !== row.id)
-    ElMessage.success('删除成功')
+    deleteAdmin(row.id)
+      .then(res => {
+        console.log('删除管理员成功:', res)
+        if (res.code === 0 || res.code === 200) {
+          ElMessage.success('删除成功')
+          fetchAdminList() // 重新加载数据
+        } else {
+          ElMessage.error(res.message || '删除失败')
+        }
+      })
+      .catch(err => {
+        console.error('删除管理员失败:', err)
+        ElMessage.error('删除失败')
+      })
   }).catch(() => {})
 }
 
@@ -588,9 +869,19 @@ const handleBatchDelete = () => {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    // 这里应该调用API删除数据
-    adminList.value = adminList.value.filter(item => !ids.includes(item.id))
+    // 后端API不支持批量删除，逐个删除
+    const deletePromises = ids.map(id => deleteAdmin(id))
+    Promise.all(deletePromises)
+      .then(results => {
     ElMessage.success('批量删除成功')
+        fetchAdminList() // 重新加载数据
+      })
+      .catch(err => {
+        console.error('批量删除管理员失败:', err)
+        ElMessage.error('部分管理员删除失败')
+        // 重新加载数据
+        fetchAdminList()
+      })
   }).catch(() => {})
 }
 
@@ -598,6 +889,28 @@ const handleBatchDelete = () => {
 const handleStatusChange = (row) => {
   const statusText = row.status === 'enabled' ? '启用' : '禁用'
   ElMessage.success(`已${statusText}管理员 ${row.username}`)
+  
+  // 这里应该调用API更新状态
+  const updateData = {
+    id: row.id,
+    status: row.status
+  }
+  
+  updateAdmin(updateData)
+    .then(res => {
+      console.log('更新管理员状态成功:', res)
+      if (res.code !== 0 && res.code !== 200) {
+        ElMessage.error(res.message || '更新状态失败')
+        // 回滚状态
+        row.status = row.status === 'enabled' ? 'disabled' : 'enabled'
+      }
+    })
+    .catch(err => {
+      console.error('更新管理员状态失败:', err)
+      ElMessage.error('更新状态失败')
+      // 回滚状态
+      row.status = row.status === 'enabled' ? 'disabled' : 'enabled'
+    })
 }
 
 // 重置密码
@@ -614,24 +927,114 @@ const handleResetPassword = (row) => {
 const submitAdminForm = () => {
   adminFormRef.value.validate((valid) => {
     if (valid) {
-      if (dialogType.value === 'add') {
-        // 添加管理员
-        const newAdmin = {
-          id: Date.now(),
-          ...adminForm,
-          lastLoginTime: '-'
-        }
-        adminList.value.unshift(newAdmin)
-        ElMessage.success('添加管理员成功')
-      } else {
-        // 编辑管理员
-        const index = adminList.value.findIndex(item => item.id === adminForm.id)
-        if (index !== -1) {
-          adminList.value[index] = { ...adminList.value[index], ...adminForm }
-        }
-        ElMessage.success('编辑管理员成功')
+      // 打印完整的表单数据，用于调试
+      console.log('完整的表单数据:', JSON.parse(JSON.stringify(adminForm)))
+      
+      // 准备提交的数据
+      const submitData = {
+        username: adminForm.username,
+        name: adminForm.name || '', // 确保name字段有值
+        identity: adminForm.role, // 使用role字段作为identity
+        email: adminForm.email || '', // 确保email字段有值
+        phone: adminForm.phone || '', // 确保phone字段有值
       }
-      dialogVisible.value = false
+      
+      // 如果有状态，添加状态
+      if (adminForm.hasOwnProperty('status')) {
+        submitData.status = adminForm.status
+      }
+      
+      // 如果是编辑操作，需要包含ID
+      if (dialogType.value === 'edit') {
+        submitData.id = adminForm.id
+      } else {
+        // 添加操作需要密码
+        submitData.password = adminForm.password
+      }
+      
+      // 添加权限套餐ID
+      if (adminForm.permissionId) {
+        submitData.permissionId = adminForm.permissionId
+      }
+      
+      // 处理租户类型和租户选择
+      // 非平台级管理员
+      if (adminForm.tenantType && adminForm.tenantType !== 'platform') {
+        console.log('提交表单 - 非平台级管理员')
+        console.log('提交表单 - 租户类型:', adminForm.tenantType)
+        
+        // 直接使用租户类型ID
+        submitData.tenantType = parseInt(adminForm.tenantType)
+        
+        // 添加租户IDs - 确保是数字数组
+        submitData.tenantIds = adminForm.tenantIds && adminForm.tenantIds.length > 0
+          ? adminForm.tenantIds.map(id => parseInt(id))
+          : []
+          
+        console.log('提交表单 - 处理后的租户类型:', submitData.tenantType)
+        console.log('提交表单 - 处理后的租户IDs:', submitData.tenantIds)
+        
+        // 保存租户信息到本地存储
+        if (submitData.id) {
+          saveAdminTenantInfo(
+            submitData.id, 
+            adminForm.tenantType, 
+            adminForm.tenantIds
+          )
+        }
+      } 
+      // 平台级管理员
+      else if (adminForm.tenantType === 'platform' || ['超级管理员', '系统管理员'].includes(adminForm.role)) {
+        console.log('提交表单 - 平台级管理员')
+        // 平台级管理员不关联租户类型和租户
+        submitData.tenantType = null
+        submitData.tenantIds = []
+        
+        // 保存租户信息到本地存储（清空租户信息）
+        if (submitData.id) {
+          saveAdminTenantInfo(submitData.id, 'platform', [])
+        }
+      }
+      
+      console.log('准备提交管理员表单:', JSON.stringify(submitData), '操作类型:', dialogType.value)
+      
+      const apiCall = dialogType.value === 'add' 
+        ? addAdmin(submitData)
+        : updateAdmin(submitData)
+      
+      apiCall
+        .then(res => {
+          console.log(dialogType.value === 'add' ? '添加管理员成功:' : '编辑管理员成功:', res)
+          if (res.code === 0 || res.code === 200) {
+            // 如果是添加操作且成功，需要保存租户信息到本地存储
+            if (dialogType.value === 'add' && res.data && res.data.id) {
+              const newAdminId = res.data.id
+              
+              // 非平台级管理员
+              if (adminForm.tenantType && adminForm.tenantType !== 'platform') {
+                saveAdminTenantInfo(
+                  newAdminId, 
+                  adminForm.tenantType, 
+                  adminForm.tenantIds
+                )
+              } 
+              // 平台级管理员
+              else if (adminForm.tenantType === 'platform') {
+                saveAdminTenantInfo(newAdminId, 'platform', [])
+              }
+            }
+            
+            ElMessage.success(dialogType.value === 'add' ? '添加管理员成功' : '编辑管理员成功')
+            dialogVisible.value = false
+            fetchAdminList() // 重新加载数据
+          } else {
+            ElMessage.error(res.message || res.msg || (dialogType.value === 'add' ? '添加管理员失败' : '编辑管理员失败'))
+          }
+        })
+        .catch(err => {
+          console.error(dialogType.value === 'add' ? '添加管理员失败:' : '编辑管理员失败:', err)
+          ElMessage.error(dialogType.value === 'add' ? '添加管理员失败' : '编辑管理员失败')
+        })
     } else {
       return false
     }
@@ -642,16 +1045,67 @@ const submitAdminForm = () => {
 const submitResetPwd = () => {
   resetPwdFormRef.value.validate((valid) => {
     if (valid) {
-      ElMessage.success(`已重置 ${resetPwdForm.username} 的密码`)
-      resetPwdVisible.value = false
+      // 这里应该调用API重置密码
+      const resetData = {
+        id: resetPwdForm.userId,
+        password: resetPwdForm.password
+      }
+      
+      updateAdmin(resetData)
+        .then(res => {
+          console.log('重置密码成功:', res)
+          if (res.code === 0 || res.code === 200) {
+            ElMessage.success(`已重置 ${resetPwdForm.username} 的密码`)
+            resetPwdVisible.value = false
+          } else {
+            ElMessage.error(res.message || '重置密码失败')
+          }
+        })
+        .catch(err => {
+          console.error('重置密码失败:', err)
+          ElMessage.error('重置密码失败')
+        })
     } else {
       return false
     }
   })
 }
 
+// 获取权限套餐名称
+const getPermissionPackageName = (id) => {
+  if (!id) return '-'
+  const pkg = permissionPackages.value.find(item => item.id == id)
+  return pkg ? pkg.permissionName : `套餐${id}`
+}
+
+// 获取租户选项
+const getTenantOptionsByType = (type) => {
+  if (type === 'platform') {
+    return []
+  }
+  
+  // 尝试将type转换为ID
+  let typeId = type
+  if (isNaN(type)) {
+    // 如果不是数字，尝试通过映射获取ID
+    typeId = getTenantTypeId(type)
+  }
+  
+  // 确保typeId是字符串
+  const typeIdStr = typeId?.toString()
+  
+  // 获取该类型的租户选项
+  const options = tenantOptionsByType.value[typeIdStr] || []
+  console.log(`获取租户选项 - 类型: ${type}, 转换ID: ${typeIdStr}, 选项数量: ${options.length}`)
+  
+  // 返回该类型的租户选项，如果没有则返回空数组
+  return options
+}
+
 onMounted(() => {
   fetchAdminList()
+  fetchPermissionPackages()
+  fetchTenantOptions()
 })
 </script>
 

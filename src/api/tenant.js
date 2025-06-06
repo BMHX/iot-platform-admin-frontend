@@ -1,21 +1,90 @@
 import request from '../utils/request'
 
 /**
- * 分页获取租户列表
- * @param {Object} params - 查询参数 {page, limit, typeId, name, contactPerson, contactPhone, status, regionCode}
+ * 获取所有租户类型
+ * @param {Object} params - 分页参数 {page, limit}
  * @returns {Promise}
  */
-export function getTenantList(params) {
-  console.log('获取租户列表参数:', params)
+export function getAllTenantTypes(params = { page: 1, limit: 100 }) {
+  return request({
+    url: '/api/tenant-type',
+    method: 'get',
+    params
+  })
+}
+
+/**
+ * 获取租户类型详情
+ * @param {Number} id - 租户类型ID
+ * @returns {Promise}
+ */
+export function getTenantTypeById(id) {
+  return request({
+    url: `/api/tenant-type/${id}`,
+    method: 'get'
+  })
+}
+
+/**
+ * 获取所有租户详情（包含类型分组）
+ * @returns {Promise}
+ */
+export function getAllTenantDetails() {
+  return request({
+    url: '/api/tenant-type/details',
+    method: 'get'
+  })
+}
+
+/**
+ * 分页查询租户
+ * @param {Object} params - 查询参数
+ * @returns {Promise}
+ */
+export function getTenants(params = { page: 1, limit: 100 }) {
+  return request({
+    url: '/api/tenant',
+    method: 'get',
+    params
+  })
+}
+
+/**
+ * 分页查询租户（getTenantList 别名，与 getTenants 功能相同）
+ * @param {Object} params - 查询参数
+ * @returns {Promise}
+ */
+export function getTenantList(params = { page: 1, limit: 100 }) {
+  console.log('分页查询租户列表，参数:', params)
   return request({
     url: '/api/tenant',
     method: 'get',
     params
   }).then(res => {
-    console.log('租户列表响应:', res)
+    console.log('获取租户列表成功:', res)
     return res
   }).catch(err => {
-    console.error('获取租户列表错误:', err)
+    console.error('获取租户列表失败:', err)
+    throw err
+  })
+}
+
+/**
+ * 获取指定类型的租户列表
+ * @param {Object} params - 包含typeId和分页参数的对象
+ * @returns {Promise}
+ */
+export function getTenantsByType(params) {
+  console.log('获取指定类型租户列表，参数:', params)
+  return request({
+    url: '/api/tenant',
+    method: 'get',
+    params
+  }).then(res => {
+    console.log('获取指定类型租户列表成功:', res)
+    return res
+  }).catch(err => {
+    console.error('获取指定类型租户列表失败:', err)
     throw err
   })
 }
@@ -25,7 +94,7 @@ export function getTenantList(params) {
  * @param {Number} id - 租户ID
  * @returns {Promise}
  */
-export function getTenantDetail(id) {
+export function getTenantById(id) {
   return request({
     url: `/api/tenant/${id}`,
     method: 'get'
@@ -33,22 +102,15 @@ export function getTenantDetail(id) {
 }
 
 /**
- * 新增租户
+ * 添加租户
  * @param {Object} data - 租户数据
  * @returns {Promise}
  */
 export function addTenant(data) {
-  console.log('添加租户数据:', data)
   return request({
     url: '/api/tenant',
     method: 'post',
     data
-  }).then(res => {
-    console.log('添加租户响应:', res)
-    return res
-  }).catch(err => {
-    console.error('添加租户错误:', err)
-    throw err
   })
 }
 
@@ -58,10 +120,10 @@ export function addTenant(data) {
  * @param {Object} data - 租户数据
  * @returns {Promise}
  */
-export function updateTenant(id, data) {
-  console.log('更新租户数据:', id, data)
+export function updateTenant(data) {
+  console.log('更新租户数据:', data)
   return request({
-    url: `/api/tenant/${id}`,
+    url: `/api/tenant/${data.id}`,
     method: 'put',
     data
   }).then(res => {
@@ -79,17 +141,10 @@ export function updateTenant(id, data) {
  * @returns {Promise}
  */
 export function deleteTenant(ids) {
-  console.log('删除租户IDs:', ids)
   return request({
     url: '/api/tenant',
     method: 'delete',
     data: ids
-  }).then(res => {
-    console.log('删除租户响应:', res)
-    return res
-  }).catch(err => {
-    console.error('删除租户错误:', err)
-    throw err
   })
 }
 
@@ -189,33 +244,15 @@ export function deleteTenantType(ids) {
 }
 
 /**
- * 获取所有租户的详细信息列表
- * @returns {Promise}
- */
-export function getAllTenantDetails() {
-  return request({
-    url: '/api/tenant-type/details',
-    method: 'get'
-  })
-}
-
-/**
  * 获取租户扩展属性定义列表
  * @param {Object} params - 查询参数 {page, limit, typeId, name, code, dataType, status}
  * @returns {Promise}
  */
 export function getTenantAttributeDefinitionList(params) {
-  console.log('获取租户扩展属性定义列表参数:', params)
   return request({
-    url: '/iot/tenant-attribute-definitions',
+    url: '/api/tenant-attribute-definitions',
     method: 'get',
     params
-  }).then(res => {
-    console.log('租户扩展属性定义列表响应:', res)
-    return res
-  }).catch(err => {
-    console.error('获取租户扩展属性定义列表错误:', err)
-    throw err
   })
 }
 
@@ -226,7 +263,7 @@ export function getTenantAttributeDefinitionList(params) {
  */
 export function getTenantAttributeDefinitionById(id) {
   return request({
-    url: `/iot/tenant-attribute-definitions/${id}`,
+    url: `/api/tenant-attribute-definitions/${id}`,
     method: 'get'
   })
 }
@@ -237,17 +274,10 @@ export function getTenantAttributeDefinitionById(id) {
  * @returns {Promise}
  */
 export function addTenantAttributeDefinition(data) {
-  console.log('添加租户扩展属性定义数据:', data)
   return request({
-    url: '/iot/tenant-attribute-definitions',
+    url: '/api/tenant-attribute-definitions',
     method: 'post',
     data
-  }).then(res => {
-    console.log('添加租户扩展属性定义响应:', res)
-    return res
-  }).catch(err => {
-    console.error('添加租户扩展属性定义错误:', err)
-    throw err
   })
 }
 
@@ -257,17 +287,10 @@ export function addTenantAttributeDefinition(data) {
  * @returns {Promise}
  */
 export function updateTenantAttributeDefinition(data) {
-  console.log('更新租户扩展属性定义数据:', data)
   return request({
-    url: '/iot/tenant-attribute-definitions',
+    url: '/api/tenant-attribute-definitions',
     method: 'put',
     data
-  }).then(res => {
-    console.log('更新租户扩展属性定义响应:', res)
-    return res
-  }).catch(err => {
-    console.error('更新租户扩展属性定义错误:', err)
-    throw err
   })
 }
 
@@ -278,7 +301,7 @@ export function updateTenantAttributeDefinition(data) {
  */
 export function deleteTenantAttributeDefinition(id) {
   return request({
-    url: `/iot/tenant-attribute-definitions/${id}`,
+    url: `/api/tenant-attribute-definitions/${id}`,
     method: 'delete'
   })
 }
@@ -289,17 +312,10 @@ export function deleteTenantAttributeDefinition(id) {
  * @returns {Promise}
  */
 export function getTenantAttributeValueList(params) {
-  console.log('获取租户扩展属性值列表参数:', params)
   return request({
-    url: '/iot/tenant-attribute-values',
+    url: '/api/tenant-attribute-values',
     method: 'get',
     params
-  }).then(res => {
-    console.log('租户扩展属性值列表响应:', res)
-    return res
-  }).catch(err => {
-    console.error('获取租户扩展属性值列表错误:', err)
-    throw err
   })
 }
 
@@ -309,17 +325,10 @@ export function getTenantAttributeValueList(params) {
  * @returns {Promise}
  */
 export function saveTenantAttributeValue(data) {
-  console.log('保存租户扩展属性值数据:', data)
   return request({
-    url: '/iot/tenant-attribute-values',
+    url: '/api/tenant-attribute-values',
     method: 'post',
     data
-  }).then(res => {
-    console.log('保存租户扩展属性值响应:', res)
-    return res
-  }).catch(err => {
-    console.error('保存租户扩展属性值错误:', err)
-    throw err
   })
 }
 
@@ -329,17 +338,10 @@ export function saveTenantAttributeValue(data) {
  * @returns {Promise}
  */
 export function updateTenantAttributeValue(data) {
-  console.log('更新租户扩展属性值数据:', data)
   return request({
-    url: '/iot/tenant-attribute-values',
+    url: '/api/tenant-attribute-values',
     method: 'put',
     data
-  }).then(res => {
-    console.log('更新租户扩展属性值响应:', res)
-    return res
-  }).catch(err => {
-    console.error('更新租户扩展属性值错误:', err)
-    throw err
   })
 }
 
@@ -349,17 +351,10 @@ export function updateTenantAttributeValue(data) {
  * @returns {Promise}
  */
 export function getAttributeDefinitionsByTypeId(typeId) {
-  console.log('根据租户类型ID获取属性定义列表:', typeId)
   return request({
-    url: '/iot/tenant-attribute-definitions',
+    url: '/api/tenant-attribute-definitions',
     method: 'get',
     params: { typeId }
-  }).then(res => {
-    console.log('根据租户类型ID获取属性定义列表响应:', res)
-    return res
-  }).catch(err => {
-    console.error('根据租户类型ID获取属性定义列表错误:', err)
-    throw err
   })
 }
 
@@ -369,16 +364,9 @@ export function getAttributeDefinitionsByTypeId(typeId) {
  * @returns {Promise}
  */
 export function getAttributeValuesByTenantId(tenantId) {
-  console.log('根据租户ID获取属性值列表:', tenantId)
   return request({
-    url: '/iot/tenant-attribute-values',
+    url: '/api/tenant-attribute-values',
     method: 'get',
     params: { tenantId }
-  }).then(res => {
-    console.log('根据租户ID获取属性值列表响应:', res)
-    return res
-  }).catch(err => {
-    console.error('根据租户ID获取属性值列表错误:', err)
-    throw err
   })
 } 
