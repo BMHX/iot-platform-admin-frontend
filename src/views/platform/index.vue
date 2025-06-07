@@ -1,5 +1,5 @@
 <template>
-  <div class="platform-container">
+  <div class="platform-management">
     <el-card>
       <template #header>
         <div class="card-header">
@@ -7,27 +7,12 @@
         </div>
       </template>
       
-      <el-tabs type="border-card">
-        <!-- 版本管理 -->
-        <el-tab-pane>
-          <template #label>
-            <div class="custom-tabs-label">
-              <el-icon><Files /></el-icon>
-              <span>版本管理</span>
-            </div>
-          </template>
-          <version-management />
+      <el-tabs v-model="activeTab" type="card">
+        <el-tab-pane label="协议管理" name="protocol">
+          <ProtocolManagement />
         </el-tab-pane>
-        
-        <!-- 协议管理 -->
-        <el-tab-pane>
-          <template #label>
-            <div class="custom-tabs-label">
-              <el-icon><Connection /></el-icon>
-              <span>协议管理</span>
-            </div>
-          </template>
-          <protocol-management />
+        <el-tab-pane label="版本管理" name="version">
+          <VersionManagement />
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -36,30 +21,20 @@
 
 <script setup>
 import { ref } from 'vue'
-import VersionManagement from '../settings/components/VersionManagement.vue'
-import ProtocolManagement from '../settings/components/ProtocolManagement.vue'
+import ProtocolManagement from './components/ProtocolManagement.vue'
+import VersionManagement from './components/VersionManagement.vue'
+
+const activeTab = ref('protocol')
 </script>
 
 <style scoped>
-.platform-container {
+.platform-management {
   padding: 20px;
-  width: 100%;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.custom-tabs-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-:deep(.el-tabs__content) {
-  padding: 20px;
 }
 </style> 

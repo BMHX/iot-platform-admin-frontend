@@ -175,6 +175,15 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { marked } from 'marked'
+import { 
+  getVersionPage, 
+  getVersionById, 
+  createVersion, 
+  updateVersion, 
+  deleteVersion, 
+  setActiveVersion,
+  generateVersionLog
+} from '@/api/platform'
 
 // 列表数据
 const loading = ref(false)
@@ -222,82 +231,29 @@ const rules = {
 }
 
 // 获取版本列表
-const getVersionList = () => {
+const getVersionList = async () => {
   loading.value = true
-  
-  // 模拟API请求
-  setTimeout(() => {
-    // 模拟数据
-    const mockVersions = [
-      {
-        id: 1,
-        version: '1.0.0',
-        type: 'stable',
-        description: '首个正式版本',
-        updateContent: '## 新特性\n- 基础功能实现\n- 设备管理\n- 数据分析\n- 告警功能',
-        publishTime: '2023-04-15 10:00:00',
-        publisher: '管理员',
-        isActive: true
-      },
-      {
-        id: 2,
-        version: '0.9.0',
-        type: 'beta',
-        description: '公测版本',
-        updateContent: '## 新特性\n- 基础功能实现\n- 设备管理\n- 数据分析',
-        publishTime: '2023-03-20 14:30:00',
-        publisher: '系统管理员',
-        isActive: false
-      },
-      {
-        id: 3,
-        version: '0.8.5',
-        type: 'beta',
-        description: '测试版更新',
-        updateContent: '## 修复\n- 修复了设备连接问题\n- 优化了数据展示',
-        publishTime: '2023-03-10 09:15:00',
-        publisher: '系统管理员',
-        isActive: false
-      },
-      {
-        id: 4,
-        version: '0.8.0',
-        type: 'alpha',
-        description: '内部测试版',
-        updateContent: '## 内测功能\n- 设备管理基础实现\n- 简单数据展示',
-        publishTime: '2023-02-25 11:20:00',
-        publisher: '系统管理员',
-        isActive: false
-      },
-      {
-        id: 5,
-        version: '0.7.0',
-        type: 'alpha',
-        description: '初始开发版本',
-        updateContent: '## 初始开发\n- 项目初始化\n- 基础框架搭建',
-        publishTime: '2023-02-10 16:45:00',
-        publisher: '系统管理员',
-        isActive: false
-      }
-    ]
-    
-    // 过滤
-    let filteredVersions = [...mockVersions]
-    if (searchVersion.value) {
-      filteredVersions = filteredVersions.filter(v => v.version.includes(searchVersion.value))
-    }
-    if (releaseType.value) {
-      filteredVersions = filteredVersions.filter(v => v.type === releaseType.value)
+  try {
+    const params = {
+      page: currentPage.value,
+      limit: pageSize.value,
+      version: searchVersion.value || undefined,
+      type: releaseType.value || undefined
     }
     
-    // 分页
-    const start = (currentPage.value - 1) * pageSize.value
-    const end = start + pageSize.value
-    versionList.value = filteredVersions.slice(start, end)
-    total.value = filteredVersions.length
-    
+    const res = await getVersionPage(params)
+    if (res && res.code === 0) {
+      versionList.value = res.data.list
+      total.value = res.data.total
+    } else {
+      ElMessage.error(res.msg || '获取版本列表失败')
+    }
+  } catch (error) {
+    console.error('获取版本列表出错:', error)
+    ElMessage.error('获取版本列表失败')
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 // 搜索
@@ -349,35 +305,22 @@ const resetVersionForm = () => {
 const submitVersionForm = () => {
   if (!versionFormRef.value) return
   
-  versionFormRef.value.validate((valid) => {
+  versionFormRef.value.validate(async (valid) => {
     if (valid) {
-      // 模拟API请求
-      setTimeout(() => {
-        // 如果设置为激活，先将其他版本设为非激活
-        if (versionForm.isActive) {
-          versionList.value.forEach(v => {
-            v.isActive = false
-          })
-        }
-        
+      try {
         // 添加新版本
-        const newVersion = {
-          id: new Date().getTime(),
-          version: versionForm.version,
-          type: versionForm.type,
-          description: versionForm.description,
-          updateContent: versionForm.updateContent,
-          publishTime: new Date().toLocaleString(),
-          publisher: '当前管理员',
-          isActive: versionForm.isActive
+        const res = await createVersion(versionForm)
+        if (res && res.code === 0) {
+          ElMessage.success('版本发布成功')
+          publishDialogVisible.value = false
+          getVersionList() // 重新加载列表
+        } else {
+          ElMessage.error(res.msg || '版本发布失败')
         }
-        
-        versionList.value.unshift(newVersion)
-        total.value++
-        
-        ElMessage.success('版本发布成功')
-        publishDialogVisible.value = false
-      }, 500)
+      } catch (error) {
+        console.error('版本发布出错:', error)
+        ElMessage.error('版本发布失败')
+      }
     }
   })
 }
@@ -395,27 +338,34 @@ const handleSetActive = (row) => {
       type: 'warning'
     }
   )
-    .then(() => {
-      // 模拟API请求
-      setTimeout(() => {
-        // 将所有版本设为非激活
-        versionList.value.forEach(v => {
-          v.isActive = false
-        })
-        
-        // 设置当前版本为激活
-        const index = versionList.value.findIndex(v => v.id === row.id)
-        if (index !== -1) {
-          versionList.value[index].isActive = true
+    .then(async () => {
+      try {
+        const res = await setActiveVersion(row.id)
+        if (res && res.code === 0) {
+          // 将所有版本设为非激活
+          versionList.value.forEach(v => {
+            v.isActive = false
+          })
+          
+          // 设置当前版本为激活
+          const index = versionList.value.findIndex(v => v.id === row.id)
+          if (index !== -1) {
+            versionList.value[index].isActive = true
+          }
+          
+          // 如果是从详情页操作的，更新currentVersion
+          if (currentVersion.value && currentVersion.value.id === row.id) {
+            currentVersion.value.isActive = true
+          }
+          
+          ElMessage.success(`版本 ${row.version} 已设置为当前版本`)
+        } else {
+          ElMessage.error(res.msg || '设置当前版本失败')
         }
-        
-        // 如果是从详情页操作的，更新currentVersion
-        if (currentVersion.value && currentVersion.value.id === row.id) {
-          currentVersion.value.isActive = true
-        }
-        
-        ElMessage.success(`版本 ${row.version} 已设置为当前版本`)
-      }, 300)
+      } catch (error) {
+        console.error('设置当前版本出错:', error)
+        ElMessage.error('设置当前版本失败')
+      }
     })
     .catch(() => {
       // 用户取消操作
@@ -438,16 +388,19 @@ const handleDeleteVersion = (row) => {
       type: 'warning'
     }
   )
-    .then(() => {
-      // 模拟API请求
-      setTimeout(() => {
-        const index = versionList.value.findIndex(v => v.id === row.id)
-        if (index !== -1) {
-          versionList.value.splice(index, 1)
-          total.value--
+    .then(async () => {
+      try {
+        const res = await deleteVersion(row.id)
+        if (res && res.code === 0) {
+          ElMessage.success('版本已删除')
+          getVersionList() // 重新加载列表
+        } else {
+          ElMessage.error(res.msg || '删除版本失败')
         }
-        ElMessage.success('版本已删除')
-      }, 300)
+      } catch (error) {
+        console.error('删除版本出错:', error)
+        ElMessage.error('删除版本失败')
+      }
     })
     .catch(() => {
       // 用户取消操作
@@ -455,27 +408,30 @@ const handleDeleteVersion = (row) => {
 }
 
 // 查看详情
-const handleViewDetails = (row) => {
-  currentVersion.value = { ...row }
-  detailsDialogVisible.value = true
+const handleViewDetails = async (row) => {
+  try {
+    const res = await getVersionById(row.id)
+    if (res && res.code === 0) {
+      currentVersion.value = res.data
+      detailsDialogVisible.value = true
+    } else {
+      ElMessage.error(res.msg || '获取版本详情失败')
+    }
+  } catch (error) {
+    console.error('获取版本详情出错:', error)
+    ElMessage.error('获取版本详情失败')
+  }
 }
 
 // 生成版本日志
-const handleGenerateLog = () => {
-  // 模拟API请求
-  setTimeout(() => {
-    // 这里模拟生成版本日志文件下载
+const handleGenerateLog = async () => {
+  try {
+    await generateVersionLog()
     ElMessage.success('版本日志已生成，正在下载...')
-    
-    // 模拟下载操作
-    const element = document.createElement('a')
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent('版本日志内容...'))
-    element.setAttribute('download', 'version-changelog.md')
-    element.style.display = 'none'
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
-  }, 500)
+  } catch (error) {
+    console.error('生成版本日志出错:', error)
+    ElMessage.error('生成版本日志失败')
+  }
 }
 
 onMounted(() => {
