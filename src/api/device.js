@@ -37,6 +37,17 @@ export function getDeviceDetail(id) {
 }
 
 /**
+ * 获取仪表盘数据
+ * @returns {Promise}
+ */
+export function getDashboardData() {
+  return request({
+    url: '/iot/devices/dashboard',
+    method: 'get'
+  })
+}
+
+/**
  * 添加设备
  * @param {Object} data - 设备数据
  * @returns {Promise}

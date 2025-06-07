@@ -42,8 +42,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import { useDeviceStore } from '../../stores/device'
+import { getDashboardData } from '../../api/device'
 import * as echarts from 'echarts'
 
 const deviceStore = useDeviceStore()
@@ -82,22 +83,52 @@ const pieChartRef = ref(null)
 let lineChart = null
 let pieChart = null
 
-// 假数据模拟
-const mockData = () => {
-  // 模拟设备统计数据
-  const stats = {
-    total: 120,
-    online: 86,
-    offline: 24,
-    alarm: 10
-  }
-  deviceStore.setDeviceStats(stats)
+// 连接趋势数据
+const trendData = ref({
+  dates: [],
+  online: [],
+  alarm: []
+})
+
+// 更新统计卡片
+const updateStatCards = (stats) => {
+  if (!stats) return
   
-  // 更新统计卡片
-  statCards.value[0].value = stats.total
-  statCards.value[1].value = stats.online
-  statCards.value[2].value = stats.offline
-  statCards.value[3].value = stats.alarm
+  statCards.value[0].value = stats.total || 0
+  statCards.value[1].value = stats.online || 0
+  statCards.value[2].value = stats.offline || 0
+  statCards.value[3].value = stats.alarm || 0
+}
+
+// 获取仪表盘数据
+const fetchDashboardData = async () => {
+  try {
+    const res = await getDashboardData()
+    if (res.code === 0 || res.code === 200) {
+      const data = res.data || {}
+      
+      // 更新设备统计数据
+      if (data.stats) {
+        deviceStore.setDeviceStats(data.stats)
+        updateStatCards(data.stats)
+      }
+      
+      // 更新趋势数据
+      if (data.trend) {
+        trendData.value = data.trend
+        updateLineChart()
+      }
+      
+      // 更新饼图数据
+      if (data.stats) {
+        updatePieChart(data.stats)
+      }
+    } else {
+      console.error('获取仪表盘数据失败:', res.message)
+    }
+  } catch (error) {
+    console.error('获取仪表盘数据异常:', error)
+  }
 }
 
 // 初始化折线图
@@ -105,13 +136,19 @@ const initLineChart = () => {
   if (!lineChartRef.value) return
   
   lineChart = echarts.init(lineChartRef.value)
+  updateLineChart()
+}
+
+// 更新折线图数据
+const updateLineChart = () => {
+  if (!lineChart) return
   
   const option = {
     tooltip: {
       trigger: 'axis'
     },
     legend: {
-      data: ['在线设备', '告警次数']
+      data: ['在线设备']
     },
     grid: {
       left: '3%',
@@ -122,7 +159,7 @@ const initLineChart = () => {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+      data: trendData.value.dates || []
     },
     yAxis: {
       type: 'value'
@@ -131,13 +168,7 @@ const initLineChart = () => {
       {
         name: '在线设备',
         type: 'line',
-        data: [80, 82, 85, 86, 88, 90, 86],
-        smooth: true
-      },
-      {
-        name: '告警次数',
-        type: 'line',
-        data: [2, 5, 3, 8, 6, 4, 10],
+        data: trendData.value.online || [],
         smooth: true
       }
     ]
@@ -151,6 +182,20 @@ const initPieChart = () => {
   if (!pieChartRef.value) return
   
   pieChart = echarts.init(pieChartRef.value)
+  
+  // 使用设备统计数据更新饼图
+  const stats = {
+    online: deviceStore.onlineDeviceCount,
+    offline: deviceStore.offlineDeviceCount,
+    alarm: deviceStore.alarmDeviceCount
+  }
+  
+  updatePieChart(stats)
+}
+
+// 更新饼图数据
+const updatePieChart = (stats) => {
+  if (!pieChart || !stats) return
   
   const option = {
     tooltip: {
@@ -188,9 +233,9 @@ const initPieChart = () => {
           show: false
         },
         data: [
-          { value: 86, name: '在线设备' },
-          { value: 24, name: '离线设备' },
-          { value: 10, name: '告警设备' }
+          { value: stats.online || 0, name: '在线设备' },
+          { value: stats.offline || 0, name: '离线设备' },
+          { value: stats.alarm || 0, name: '告警设备' }
         ]
       }
     ]
@@ -206,8 +251,8 @@ const handleResize = () => {
 }
 
 onMounted(() => {
-  // 模拟数据
-  mockData()
+  // 获取仪表盘数据
+  fetchDashboardData()
   
   // 初始化图表
   initLineChart()
@@ -215,6 +260,22 @@ onMounted(() => {
   
   // 添加窗口大小变化监听
   window.addEventListener('resize', handleResize)
+})
+
+onBeforeUnmount(() => {
+  // 移除窗口大小变化监听
+  window.removeEventListener('resize', handleResize)
+  
+  // 销毁图表实例
+  if (lineChart) {
+    lineChart.dispose()
+    lineChart = null
+  }
+  
+  if (pieChart) {
+    pieChart.dispose()
+    pieChart = null
+  }
 })
 </script>
 
