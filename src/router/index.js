@@ -64,9 +64,17 @@ const routes = [
     name: 'Login',
     component: () => import('../views/login/index.vue')
   },
+  // 排除API路径，不要匹配/admin、/api和/iot开头的路径
   {
     path: '/:catchAll(.*)',
-    component: () => import('../views/error/404.vue')
+    component: () => import('../views/error/404.vue'),
+    beforeEnter: (to, from, next) => {
+      // 如果是API路径，不要拦截
+      if (to.path.startsWith('/admin') || to.path.startsWith('/api') || to.path.startsWith('/iot')) {
+        return; // 不处理，让请求通过
+      }
+      next(); // 否则显示404页面
+    }
   }
 ]
 
@@ -77,6 +85,12 @@ const router = createRouter({
 
 // 导航守卫
 router.beforeEach((to, from, next) => {
+  // 如果是API路径，不拦截
+  if (to.path.startsWith('/admin') || to.path.startsWith('/api') || to.path.startsWith('/iot')) {
+    next();
+    return;
+  }
+  
   // 如果访问登录页，直接放行
   if (to.path === '/login') {
     next()

@@ -9,10 +9,10 @@
       
       <el-tabs v-model="activeTab" type="card">
         <el-tab-pane label="协议管理" name="protocol">
-          <ProtocolManagement />
+          <ProtocolManagement v-if="activeTab === 'protocol'" />
         </el-tab-pane>
         <el-tab-pane label="版本管理" name="version">
-          <VersionManagement />
+          <VersionManagement v-if="activeTab === 'version'" />
         </el-tab-pane>
       </el-tabs>
     </el-card>

@@ -89,8 +89,8 @@ const trendData = ref({
   online: [],
   alarm: []
 })
-
-// 更新统计卡片
+  
+  // 更新统计卡片
 const updateStatCards = (stats) => {
   if (!stats) return
   

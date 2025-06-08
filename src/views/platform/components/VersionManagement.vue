@@ -1,5 +1,7 @@
 <template>
   <div class="version-management">
+    <h2>版本管理</h2>
+    
     <!-- 操作栏 -->
     <div class="operation-bar">
       <el-button type="primary" @click="handleAddVersion">添加版本</el-button>
@@ -27,7 +29,7 @@
       <el-button type="primary" @click="handleSearch">搜索</el-button>
       <el-button @click="resetSearch">重置</el-button>
     </div>
-
+    
     <!-- 版本列表 -->
     <el-table
       :data="versionList"
@@ -68,6 +70,11 @@
             @click="handleSetActive(scope.row)"
             :disabled="scope.row.isActive"
           >设为当前版本</el-button>
+          <el-button
+            size="small"
+            type="info"
+            @click="handlePreview(scope.row)"
+          >预览</el-button>
           <el-button
             size="small"
             type="danger"
@@ -156,10 +163,7 @@
           <span>发布人: {{ currentVersion.publisher }}</span>
         </p>
         <p class="version-description">{{ currentVersion.description }}</p>
-        <div class="version-content">
-          <!-- 使用v-html渲染Markdown内容 -->
-          <div v-html="renderedContent"></div>
-        </div>
+        <div class="version-content" v-html="renderedContent"></div>
       </div>
     </el-dialog>
   </div>
@@ -207,7 +211,12 @@ const previewDialogVisible = ref(false)
 const currentVersion = ref(null)
 const renderedContent = computed(() => {
   if (currentVersion.value && currentVersion.value.updateContent) {
-    return marked(currentVersion.value.updateContent)
+    try {
+      return marked(currentVersion.value.updateContent)
+    } catch (error) {
+      console.error('Markdown渲染错误:', error)
+      return currentVersion.value.updateContent
+    }
   }
   return ''
 })
@@ -264,14 +273,20 @@ const getVersionList = async () => {
     }
     
     const res = await getVersionPage(params)
-    if (res && res.code === 0) {
-      versionList.value = res.data.list
-      total.value = res.data.total
+    console.log('版本列表响应:', res)
+    
+    if (res && (res.code === 0 || res.code === 200)) {
+      versionList.value = res.data?.list || []
+      total.value = res.data?.total || 0
     } else {
-      ElMessage.error(res.msg || '获取版本列表失败')
+      versionList.value = []
+      total.value = 0
+      ElMessage.error(res?.msg || '获取版本列表失败')
     }
   } catch (error) {
     console.error('获取版本列表出错:', error)
+    versionList.value = []
+    total.value = 0
     ElMessage.error('获取版本列表失败')
   } finally {
     loading.value = false
@@ -315,7 +330,7 @@ const handleEdit = async (row) => {
   dialogType.value = 'edit'
   try {
     const res = await getVersionById(row.id)
-    if (res && res.code === 0) {
+    if (res && (res.code === 0 || res.code === 200)) {
       Object.assign(versionForm, {
         id: res.data.id,
         version: res.data.version,
@@ -327,7 +342,7 @@ const handleEdit = async (row) => {
       })
       dialogVisible.value = true
     } else {
-      ElMessage.error(res.msg || '获取版本详情失败')
+      ElMessage.error(res?.msg || '获取版本详情失败')
     }
   } catch (error) {
     console.error('获取版本详情出错:', error)
@@ -339,11 +354,11 @@ const handleEdit = async (row) => {
 const handlePreview = async (row) => {
   try {
     const res = await getVersionById(row.id)
-    if (res && res.code === 0) {
+    if (res && (res.code === 0 || res.code === 200)) {
       currentVersion.value = res.data
       previewDialogVisible.value = true
     } else {
-      ElMessage.error(res.msg || '获取版本详情失败')
+      ElMessage.error(res?.msg || '获取版本详情失败')
     }
   } catch (error) {
     console.error('获取版本详情出错:', error)
@@ -367,11 +382,11 @@ const handleSetActive = (row) => {
     .then(async () => {
       try {
         const res = await setActiveVersion(row.id)
-        if (res && res.code === 0) {
+        if (res && (res.code === 0 || res.code === 200)) {
           ElMessage.success(`版本 ${row.version} 已设为当前版本`)
           getVersionList() // 重新加载列表
         } else {
-          ElMessage.error(res.msg || '设置当前版本失败')
+          ElMessage.error(res?.msg || '设置当前版本失败')
         }
       } catch (error) {
         console.error('设置当前版本出错:', error)
@@ -402,11 +417,11 @@ const handleDelete = (row) => {
     .then(async () => {
       try {
         const res = await deleteVersion(row.id)
-        if (res && res.code === 0) {
+        if (res && (res.code === 0 || res.code === 200)) {
           ElMessage.success('版本已删除')
           getVersionList() // 重新加载列表
         } else {
-          ElMessage.error(res.msg || '删除版本失败')
+          ElMessage.error(res?.msg || '删除版本失败')
         }
       } catch (error) {
         console.error('删除版本出错:', error)
@@ -421,24 +436,31 @@ const handleDelete = (row) => {
 // 导出版本日志
 const handleExportLog = async () => {
   try {
+    loading.value = true
     const res = await exportVersionLog()
     
-    // 创建Blob对象
-    const blob = new Blob([res.data], { type: 'text/markdown' })
-    
-    // 创建下载链接
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = 'version-changelog.md'
-    link.click()
-    
-    // 释放URL对象
-    URL.revokeObjectURL(link.href)
-    
-    ElMessage.success('版本日志已导出')
+    if (res) {
+      // 创建Blob对象
+      const blob = new Blob([res], { type: 'text/markdown' })
+      
+      // 创建下载链接
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = 'version-changelog.md'
+      link.click()
+      
+      // 释放URL对象
+      URL.revokeObjectURL(link.href)
+      
+      ElMessage.success('版本日志已导出')
+    } else {
+      ElMessage.error('导出版本日志失败')
+    }
   } catch (error) {
     console.error('导出版本日志出错:', error)
     ElMessage.error('导出版本日志失败')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -468,22 +490,22 @@ const submitVersionForm = () => {
         if (dialogType.value === 'add') {
           // 添加版本
           const res = await createVersion(versionForm)
-          if (res && res.code === 0) {
+          if (res && (res.code === 0 || res.code === 200)) {
             ElMessage.success('版本添加成功')
             dialogVisible.value = false
             getVersionList() // 重新加载列表
           } else {
-            ElMessage.error(res.msg || '添加版本失败')
+            ElMessage.error(res?.msg || '添加版本失败')
           }
         } else {
           // 编辑版本
           const res = await updateVersion(versionForm.id, versionForm)
-          if (res && res.code === 0) {
+          if (res && (res.code === 0 || res.code === 200)) {
             ElMessage.success('版本更新成功')
             dialogVisible.value = false
             getVersionList() // 重新加载列表
           } else {
-            ElMessage.error(res.msg || '更新版本失败')
+            ElMessage.error(res?.msg || '更新版本失败')
           }
         }
       } catch (error) {
@@ -502,6 +524,7 @@ onMounted(() => {
 <style scoped>
 .version-management {
   width: 100%;
+  padding: 20px;
 }
 
 .operation-bar {

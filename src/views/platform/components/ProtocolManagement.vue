@@ -1,5 +1,7 @@
 <template>
   <div class="protocol-management">
+    <h2>协议管理</h2>
+    
     <!-- 操作栏 -->
     <div class="operation-bar">
       <el-button type="primary" @click="handleAddProtocol">添加协议</el-button>
@@ -29,7 +31,7 @@
       <el-button type="primary" @click="handleSearch">搜索</el-button>
       <el-button @click="resetSearch">重置</el-button>
     </div>
-
+    
     <!-- 协议列表 -->
     <el-table
       :data="protocolList"
@@ -43,9 +45,7 @@
       <el-table-column prop="name" label="协议名称" width="150" />
       <el-table-column prop="type" label="协议类型" width="100">
         <template #default="scope">
-          <el-tag
-            :type="getProtocolTagType(scope.row.type)"
-          >
+          <el-tag :type="getProtocolTagType(scope.row.type)">
             {{ scope.row.type }}
           </el-tag>
         </template>
@@ -57,8 +57,8 @@
         <template #default="scope">
           <el-switch
             v-model="scope.row.status"
-            :active-value="'enabled'"
-            :inactive-value="'disabled'"
+            :active-value="1"
+            :inactive-value="0"
             @change="handleStatusChange(scope.row)"
           />
         </template>
@@ -129,8 +129,8 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="protocolForm.status">
-            <el-radio label="enabled">启用</el-radio>
-            <el-radio label="disabled">禁用</el-radio>
+            <el-radio :label="1">启用</el-radio>
+            <el-radio :label="0">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -272,7 +272,7 @@ import {
   deleteProtocol, 
   batchDeleteProtocol,
   updateProtocolStatus,
-  saveProtocolConfig
+  saveProtocolConfig as saveProtocolConfigApi
 } from '@/api/platform'
 
 // 列表数据
@@ -295,7 +295,7 @@ const protocolForm = reactive({
   type: '',
   version: '',
   description: '',
-  status: 'enabled'
+  status: 1  // 1表示启用，0表示禁用
 })
 
 // 配置对话框
@@ -365,14 +365,20 @@ const getProtocolList = async () => {
     }
     
     const res = await getProtocolPage(params)
-    if (res && res.code === 0) {
-      protocolList.value = res.data.list
-      total.value = res.data.total
+    console.log('协议列表响应:', res)
+    
+    if (res && (res.code === 0 || res.code === 200)) {
+      protocolList.value = res.data?.list || []
+      total.value = res.data?.total || 0
     } else {
-      ElMessage.error(res.msg || '获取协议列表失败')
+      protocolList.value = []
+      total.value = 0
+      ElMessage.error(res?.msg || '获取协议列表失败')
     }
   } catch (error) {
     console.error('获取协议列表出错:', error)
+    protocolList.value = []
+    total.value = 0
     ElMessage.error('获取协议列表失败')
   } finally {
     loading.value = false
@@ -436,73 +442,76 @@ const handleConfig = async (row) => {
   try {
     // 获取协议详情
     const res = await getProtocolById(row.id)
-    if (res && res.code === 0) {
+    if (res && (res.code === 0 || res.code === 200)) {
       currentProtocol.value = res.data
       configTab.value = 'basic'
       
       // 初始化配置
       if (res.data.config) {
-        Object.assign(protocolConfig, JSON.parse(res.data.config))
-      } else {
-        // 根据协议类型设置默认配置
-        if (row.type === 'MQTT') {
-          Object.assign(protocolConfig, {
-            server: 'broker.example.com',
-            port: 1883,
-            timeout: 10,
-            keepAlive: 60,
-            useTls: false,
-            certPath: '',
-            dataFormat: 'JSON',
-            encoding: 'UTF-8',
-            messageTemplate: '{\n  "deviceId": "${deviceId}",\n  "timestamp": ${timestamp},\n  "data": ${data}\n}',
-            mqtt: {
-              qos: 1,
-              cleanSession: true,
-              willTopic: 'devices/disconnected',
-              willMessage: '{"deviceId":"${deviceId}","status":"offline"}'
-            }
-          })
-        } else if (row.type === 'HTTP') {
-          Object.assign(protocolConfig, {
-            server: 'api.example.com',
-            port: 443,
-            timeout: 5,
-            keepAlive: 30,
-            useTls: true,
-            certPath: '/certs/server.crt',
-            dataFormat: 'JSON',
-            encoding: 'UTF-8',
-            messageTemplate: '{\n  "deviceId": "${deviceId}",\n  "data": ${data},\n  "timestamp": ${timestamp}\n}',
-            http: {
-              method: 'POST',
-              contentType: 'application/json',
-              headers: '{\n  "Authorization": "Bearer ${token}",\n  "User-Agent": "IoT-Device/1.0"\n}'
-            }
-          })
-        } else {
-          // 默认配置
-          Object.assign(protocolConfig, {
-            server: '',
-            port: 0,
-            timeout: 10,
-            keepAlive: 60,
-            useTls: false,
-            certPath: '',
-            dataFormat: 'JSON',
-            encoding: 'UTF-8',
-            messageTemplate: ''
-          })
+        try {
+          const configData = typeof res.data.config === 'string' 
+            ? JSON.parse(res.data.config) 
+            : res.data.config
+          
+          Object.assign(protocolConfig, configData)
+        } catch (e) {
+          console.error('解析协议配置出错:', e)
+          // 使用默认配置
+          initDefaultConfig(row.type)
         }
+      } else {
+        // 使用默认配置
+        initDefaultConfig(row.type)
       }
       
       configDialogVisible.value = true
     } else {
-      ElMessage.error(res.msg || '获取协议详情失败')
+      ElMessage.error(res?.msg || '获取协议详情失败')
     }
   } catch (error) {
     console.error('获取协议详情出错:', error)
     ElMessage.error('获取协议详情失败')
+  }
+}
+
+// 初始化默认配置
+const initDefaultConfig = (type) => {
+  // 基础配置
+  Object.assign(protocolConfig, {
+    server: '',
+    port: 0,
+    timeout: 10,
+    keepAlive: 60,
+    useTls: false,
+    certPath: '',
+    dataFormat: 'JSON',
+    encoding: 'UTF-8',
+    messageTemplate: ''
+  })
+  
+  // 根据协议类型设置默认配置
+  if (type === 'MQTT') {
+    Object.assign(protocolConfig, {
+      server: 'broker.example.com',
+      port: 1883,
+      mqtt: {
+        qos: 1,
+        cleanSession: true,
+        willTopic: 'devices/disconnected',
+        willMessage: '{"deviceId":"${deviceId}","status":"offline"}'
+      }
+    })
+  } else if (type === 'HTTP') {
+    Object.assign(protocolConfig, {
+      server: 'api.example.com',
+      port: 443,
+      useTls: true,
+      http: {
+        method: 'POST',
+        contentType: 'application/json',
+        headers: '{\n  "Authorization": "Bearer ${token}",\n  "User-Agent": "IoT-Device/1.0"\n}'
+      }
+    })
   }
 }
 
@@ -520,11 +529,11 @@ const handleDelete = (row) => {
     .then(async () => {
       try {
         const res = await deleteProtocol(row.id)
-        if (res && res.code === 0) {
+        if (res && (res.code === 0 || res.code === 200)) {
           ElMessage.success('协议已删除')
           getProtocolList() // 重新加载列表
         } else {
-          ElMessage.error(res.msg || '删除协议失败')
+          ElMessage.error(res?.msg || '删除协议失败')
         }
       } catch (error) {
         console.error('删除协议出错:', error)
@@ -553,12 +562,12 @@ const handleBatchDelete = () => {
       try {
         const ids = selectedProtocols.value.map(item => item.id)
         const res = await batchDeleteProtocol(ids)
-        if (res && res.code === 0) {
+        if (res && (res.code === 0 || res.code === 200)) {
           ElMessage.success(`已删除 ${ids.length} 个协议`)
           selectedProtocols.value = []
           getProtocolList() // 重新加载列表
         } else {
-          ElMessage.error(res.msg || '批量删除协议失败')
+          ElMessage.error(res?.msg || '批量删除协议失败')
         }
       } catch (error) {
         console.error('批量删除协议出错:', error)
@@ -574,17 +583,17 @@ const handleBatchDelete = () => {
 const handleStatusChange = async (row) => {
   try {
     const res = await updateProtocolStatus(row.id, row.status)
-    if (res && res.code === 0) {
-      const statusText = row.status === 'enabled' ? '启用' : '禁用'
+    if (res && (res.code === 0 || res.code === 200)) {
+      const statusText = row.status === 1 ? '启用' : '禁用'
       ElMessage.success(`协议 ${row.name} 已${statusText}`)
     } else {
       // 恢复原状态
-      row.status = row.status === 'enabled' ? 'disabled' : 'enabled'
-      ElMessage.error(res.msg || '更新协议状态失败')
+      row.status = row.status === 1 ? 0 : 1
+      ElMessage.error(res?.msg || '更新协议状态失败')
     }
   } catch (error) {
     // 恢复原状态
-    row.status = row.status === 'enabled' ? 'disabled' : 'enabled'
+    row.status = row.status === 1 ? 0 : 1
     console.error('更新协议状态出错:', error)
     ElMessage.error('更新协议状态失败')
   }
@@ -601,7 +610,7 @@ const resetProtocolForm = () => {
     type: '',
     version: '',
     description: '',
-    status: 'enabled'
+    status: 1  // 默认启用
   })
 }
 
@@ -615,22 +624,22 @@ const submitProtocolForm = () => {
         if (dialogType.value === 'add') {
           // 添加协议
           const res = await createProtocol(protocolForm)
-          if (res && res.code === 0) {
+          if (res && (res.code === 0 || res.code === 200)) {
             ElMessage.success('协议添加成功')
             dialogVisible.value = false
             getProtocolList() // 重新加载列表
           } else {
-            ElMessage.error(res.msg || '添加协议失败')
+            ElMessage.error(res?.msg || '添加协议失败')
           }
         } else {
           // 编辑协议
           const res = await updateProtocol(protocolForm.id, protocolForm)
-          if (res && res.code === 0) {
+          if (res && (res.code === 0 || res.code === 200)) {
             ElMessage.success('协议更新成功')
             dialogVisible.value = false
             getProtocolList() // 重新加载列表
           } else {
-            ElMessage.error(res.msg || '更新协议失败')
+            ElMessage.error(res?.msg || '更新协议失败')
           }
         }
       } catch (error) {
@@ -644,12 +653,13 @@ const submitProtocolForm = () => {
 // 保存协议配置
 const saveProtocolConfig = async () => {
   try {
-    const res = await saveProtocolConfig(currentProtocol.value.id, protocolConfig)
-    if (res && res.code === 0) {
+    const configData = JSON.stringify(protocolConfig)
+    const res = await saveProtocolConfigApi(currentProtocol.value.id, configData)
+    if (res && (res.code === 0 || res.code === 200)) {
       ElMessage.success(`协议 ${currentProtocol.value.name} 配置已保存`)
       configDialogVisible.value = false
     } else {
-      ElMessage.error(res.msg || '保存协议配置失败')
+      ElMessage.error(res?.msg || '保存协议配置失败')
     }
   } catch (error) {
     console.error('保存协议配置出错:', error)
@@ -665,6 +675,7 @@ onMounted(() => {
 <style scoped>
 .protocol-management {
   width: 100%;
+  padding: 20px;
 }
 
 .operation-bar {

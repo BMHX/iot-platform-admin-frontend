@@ -6,6 +6,7 @@ import request from '@/utils/request'
  * @returns {Promise}
  */
 export function getProtocolPage(params) {
+  console.log('调用getProtocolPage API，参数:', params)
   return request({
     url: '/admin/protocol/page',
     method: 'get',
@@ -19,6 +20,7 @@ export function getProtocolPage(params) {
  * @returns {Promise}
  */
 export function getProtocolList(params) {
+  console.log('调用getProtocolList API，参数:', params)
   return request({
     url: '/admin/protocol/list',
     method: 'get',
@@ -86,36 +88,39 @@ export function batchDeleteProtocol(ids) {
   return request({
     url: '/admin/protocol/batch',
     method: 'delete',
-    data: { ids }
+    data: ids
   })
 }
 
 /**
  * 更新协议状态
  * @param {Number} id - 协议ID
- * @param {String} status - 状态
+ * @param {Number} status - 状态，1表示启用，0表示禁用
  * @returns {Promise}
  */
 export function updateProtocolStatus(id, status) {
+  console.log('调用updateProtocolStatus API，参数:', { id, status })
   return request({
     url: `/admin/protocol/${id}/status`,
     method: 'put',
-    data: { status }
+    data: { status: Number(status) }  // 确保status是数字类型
   })
 }
 
 /**
  * 保存协议配置
  * @param {Number} id - 协议ID
- * @param {Object} config - 配置信息
+ * @param {Object} config - 配置信息对象
  * @returns {Promise}
  */
 export function saveProtocolConfig(id, config) {
+  console.log('调用saveProtocolConfig API，参数:', { id, config });
+  
   return request({
     url: `/admin/protocol/${id}/config`,
     method: 'put',
     data: { config }
-  })
+  });
 }
 
 /**
@@ -124,6 +129,7 @@ export function saveProtocolConfig(id, config) {
  * @returns {Promise}
  */
 export function getVersionPage(params) {
+  console.log('调用getVersionPage API，参数:', params)
   return request({
     url: '/admin/version/page',
     method: 'get',
@@ -137,6 +143,7 @@ export function getVersionPage(params) {
  * @returns {Promise}
  */
 export function getVersionList(params) {
+  console.log('调用getVersionList API，参数:', params)
   return request({
     url: '/admin/version/list',
     method: 'get',

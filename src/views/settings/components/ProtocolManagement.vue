@@ -254,7 +254,7 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="configDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveProtocolConfig">保存配置</el-button>
+          <el-button type="primary" @click="submitProtocolConfig">保存配置</el-button>
         </span>
       </template>
     </el-dialog>
@@ -642,18 +642,33 @@ const submitProtocolForm = () => {
 }
 
 // 保存协议配置
-const saveProtocolConfig = async () => {
+const submitProtocolConfig = async () => {
   try {
-    const res = await saveProtocolConfig(currentProtocol.value.id, protocolConfig)
+    // 确保配置对象是纯净的JSON对象，没有Vue的响应式包装
+    const cleanConfig = JSON.parse(JSON.stringify(protocolConfig));
+    
+    // 对于HTTP请求头，确保headers是一个对象而不是字符串
+    if (cleanConfig.http && typeof cleanConfig.http.headers === 'string') {
+      try {
+        cleanConfig.http.headers = JSON.parse(cleanConfig.http.headers);
+      } catch (e) {
+        // 如果解析失败，保持字符串格式
+        console.warn('HTTP headers 解析失败，保持字符串格式', e);
+      }
+    }
+    
+    console.log('发送配置数据:', cleanConfig);
+    
+    const res = await saveProtocolConfig(currentProtocol.value.id, cleanConfig);
     if (res && res.code === 0) {
-      ElMessage.success(`协议 ${currentProtocol.value.name} 配置已保存`)
-      configDialogVisible.value = false
+      ElMessage.success(`协议 ${currentProtocol.value.name} 配置已保存`);
+      configDialogVisible.value = false;
     } else {
-      ElMessage.error(res.msg || '保存协议配置失败')
+      ElMessage.error(res.msg || '保存协议配置失败');
     }
   } catch (error) {
-    console.error('保存协议配置出错:', error)
-    ElMessage.error('保存协议配置失败')
+    console.error('保存协议配置出错:', error);
+    ElMessage.error('保存协议配置失败');
   }
 }
 
