@@ -40,12 +40,6 @@ const routes = [
         meta: { title: '平台管理', icon: 'Platform' }
       },
       {
-        path: 'statistics',
-        name: 'Statistics',
-        component: () => import('../views/statistics/index.vue'),
-        meta: { title: '统计管理', icon: 'PieChart' }
-      },
-      {
         path: 'system',
         name: 'System',
         component: () => import('../views/settings/index.vue'),
@@ -111,9 +105,9 @@ router.beforeEach((to, from, next) => {
   // 根据角色设置路由权限
   // 不同角色可访问的路由
   const roleRoutes = {
-    admin: ['dashboard', 'data-screen', 'devices', 'tenants', 'platform', 'statistics', 'system', 'app-management'], // 管理员可访问所有
-    operator: ['dashboard', 'data-screen', 'devices', 'tenants', 'statistics'], // 运营人员
-    tenant: ['dashboard', 'data-screen', 'devices', 'statistics'], // 租户
+    admin: ['dashboard', 'data-screen', 'devices', 'tenants', 'platform', 'system', 'app-management'], // 管理员可访问所有
+    operator: ['dashboard', 'data-screen', 'devices', 'tenants'], // 运营人员
+    tenant: ['dashboard', 'data-screen', 'devices'], // 租户
     user: ['dashboard', 'data-screen', 'devices'] // 普通用户
   }
   

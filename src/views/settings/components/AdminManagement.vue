@@ -72,6 +72,11 @@
           {{ getPermissionPackageName(scope.row.permissionId) }}
         </template>
       </el-table-column>
+      <el-table-column prop="dueTime" label="套餐到期时间" width="180">
+        <template #default="scope">
+          {{ formatDueTime(scope.row.dueTime) || '-' }}
+        </template>
+      </el-table-column>
       <el-table-column prop="email" label="邮箱" width="180">
         <template #default="scope">
           {{ scope.row.email || '-' }}
@@ -156,6 +161,16 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="套餐到期时间" prop="dueTime">
+          <el-date-picker
+            v-model="adminForm.dueTime"
+            type="datetime"
+            placeholder="请选择套餐到期时间"
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+          />
+        </el-form-item>
         <el-form-item label="管理范围" prop="tenantType">
           <el-select v-model="adminForm.tenantType" placeholder="请选择管理范围" style="width: 100%" @change="handleTenantTypeChange">
             <el-option label="平台级" value="platform" :disabled="!isPlatformRole" />
@@ -237,7 +252,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAdminList, addAdmin, updateAdmin, deleteAdmin, assignAdminPermission, getAdminDetail } from '../../../api/admin'
+import { getAdminList, addAdmin, updateAdmin, deleteAdmin, assignAdminPermission, getAdminDetail, setAdminDueTime } from '../../../api/admin'
 import { getAllPrices } from '../../../api/permission'
 import { getAllTenantTypes, getTenantsByType, getAllTenantDetails } from '../../../api/tenant'
 import request from '../../../utils/request'
@@ -300,7 +315,8 @@ const adminForm = reactive({
   phone: '',
   status: 'enabled',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  dueTime: null // 添加套餐到期时间字段
 })
 
 // 是否为平台级角色
@@ -499,7 +515,8 @@ const processAdminList = (list) => {
       // 如果后端只返回了id, username, identity字段，添加其他必要字段
       role: item.role || item.identity || '',
       permissionId: item.permissionId || null,
-      lastLoginTime: item.lastLoginTime || '-'
+      lastLoginTime: item.lastLoginTime || '-',
+      dueTime: item.dueTime || null
     }
   })
 }
@@ -635,7 +652,8 @@ const handleAddAdmin = () => {
     phone: '',
     status: 'enabled',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    dueTime: null // 添加套餐到期时间字段
   })
   dialogVisible.value = true
 }
@@ -742,7 +760,8 @@ const handleEdit = (row) => {
     phone: '',
     status: 'enabled',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    dueTime: null // 添加套餐到期时间字段
   }
   
   // 合并默认值
@@ -765,6 +784,7 @@ const handleEdit = (row) => {
         adminForm.email = adminData.email || ''
         adminForm.phone = adminData.phone || ''
         adminForm.status = adminData.status || 'enabled'
+        adminForm.dueTime = adminData.dueTime || null
         
         // 处理租户类型和租户选择
         // 如果是平台级角色
@@ -1022,6 +1042,19 @@ const submitAdminForm = () => {
               else if (adminForm.tenantType === 'platform') {
                 saveAdminTenantInfo(newAdminId, 'platform', [])
               }
+              
+              // 如果设置了套餐到期时间，调用相关API
+              if (adminForm.dueTime) {
+                setAdminDueTime(newAdminId, adminForm.dueTime)
+                  .then(() => console.log('设置新添加管理员的套餐到期时间成功'))
+                  .catch(err => console.error('设置新添加管理员的套餐到期时间失败:', err))
+              }
+            } 
+            // 如果是编辑操作且成功，且设置了套餐到期时间
+            else if (dialogType.value === 'edit' && adminForm.id && adminForm.dueTime) {
+              setAdminDueTime(adminForm.id, adminForm.dueTime)
+                .then(() => console.log('更新管理员的套餐到期时间成功'))
+                .catch(err => console.error('更新管理员的套餐到期时间失败:', err))
             }
             
             ElMessage.success(dialogType.value === 'add' ? '添加管理员成功' : '编辑管理员成功')
@@ -1100,6 +1133,33 @@ const getTenantOptionsByType = (type) => {
   
   // 返回该类型的租户选项，如果没有则返回空数组
   return options
+}
+
+// 格式化套餐到期时间
+const formatDueTime = (dueTime) => {
+  if (!dueTime) return null
+  
+  // 如果是字符串类型，直接返回
+  if (typeof dueTime === 'string') {
+    return dueTime
+  }
+  
+  // 如果是日期对象，格式化为字符串
+  try {
+    // 将ISO日期字符串转换为本地时间格式
+    const date = new Date(dueTime)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  } catch (error) {
+    console.error('日期格式化错误:', error)
+    return dueTime.toString()
+  }
 }
 
 onMounted(() => {

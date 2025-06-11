@@ -173,6 +173,44 @@ export function getAdminPermission(adminId) {
   })
 }
 
+/**
+ * 设置管理员的套餐到期时间
+ * @param {Number} adminId - 管理员ID
+ * @param {String} dueTime - 到期时间 (格式: YYYY-MM-DD HH:mm:ss)
+ * @returns {Promise}
+ */
+export function setAdminDueTime(adminId, dueTime) {
+  return request({
+    url: `/api/admin/${adminId}/duetime`,
+    method: 'post',
+    params: { dueTime }
+  }).then(res => {
+    console.log('设置管理员套餐到期时间响应:', res)
+    return res
+  }).catch(err => {
+    console.error('设置管理员套餐到期时间错误:', err)
+    throw err
+  })
+}
+
+/**
+ * 获取管理员的套餐到期时间
+ * @param {Number} adminId - 管理员ID
+ * @returns {Promise}
+ */
+export function getAdminDueTime(adminId) {
+  return request({
+    url: `/api/admin/${adminId}/duetime`,
+    method: 'get'
+  }).then(res => {
+    console.log('获取管理员套餐到期时间响应:', res)
+    return res
+  }).catch(err => {
+    console.error('获取管理员套餐到期时间错误:', err)
+    throw err
+  })
+}
+
 
 
  

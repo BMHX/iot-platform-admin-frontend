@@ -209,9 +209,7 @@ const permissionOptions = ref([
   { id: '12', name: '设备管理-查看', code: 'device:view' },
   { id: '13', name: '设备管理-添加', code: 'device:add' },
   { id: '14', name: '设备管理-编辑', code: 'device:edit' },
-  { id: '15', name: '设备管理-删除', code: 'device:delete' },
-  { id: '16', name: '统计管理-查看', code: 'statistics:view' },
-  { id: '17', name: '统计管理-导出', code: 'statistics:export' }
+  { id: '15', name: '设备管理-删除', code: 'device:delete' }
 ])
 
 // 表单验证规则
