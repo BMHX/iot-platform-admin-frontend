@@ -37,6 +37,13 @@
               </div>
               <div ref="tenantTypeChart" class="chart-container"></div>
             </div>
+            <div class="panel-item">
+              <div class="panel-header">
+                <i class="el-icon-cpu"></i>
+                设备类型分布
+              </div>
+              <div ref="deviceTypeChart" class="chart-container"></div>
+            </div>
           </div>
         </el-col>
         
@@ -143,13 +150,24 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 // 引入中国地图
 import { registerMap } from 'echarts'
 import chinaJson from '../../assets/map/china.json'
 import { useDeviceStore } from '../../stores/device'
 import { useRoute } from 'vue-router'
+// 引入API
+import { 
+  getDataScreenOverview, 
+  getDeviceStatusDistribution, 
+  getTenantTypeDistribution,
+  getDeviceGeoDistribution,
+  getDeviceGrowthTrend,
+  getAlertLevelDistribution,
+  getRealtimeAlerts,
+  getDeviceTypeDistribution
+} from '../../api/dashboard'
 
 const route = useRoute()
 const deviceStore = useDeviceStore()
@@ -190,13 +208,14 @@ const exitFullscreen = () => {
 
 // 时间相关
 const currentTime = ref(formatDateTime(new Date()))
-let timer = null
+// 移除定时器变量
+const retryTimers = ref([]) // 保留数组但不再使用
 
 // 数据统计
-const deviceTotal = ref(5283)
-const onlineDeviceCount = ref(4752)
-const alertCount = ref(356)
-const tenantCount = ref(89)
+const deviceTotal = ref(0)
+const onlineDeviceCount = ref(0)
+const alertCount = ref(0)
+const tenantCount = ref(0)
 
 // 图表引用
 const deviceStatusChart = ref(null)
@@ -204,18 +223,25 @@ const tenantTypeChart = ref(null)
 const mapChart = ref(null)
 const deviceGrowthChart = ref(null)
 const alertLevelChart = ref(null)
+const deviceTypeChart = ref(null)
 
 // 保存所有图表实例的数组
 const chartInstances = ref([])
 
 // 实时告警信息
-const realtimeAlerts = ref([
-  { time: '10:28:35', content: '设备DEV20230005离线', level: 'warning' },
-  { time: '10:15:42', content: '设备DEV20230008温度超过阈值', level: 'danger' },
-  { time: '09:56:18', content: '设备DEV20230012连接异常', level: 'warning' },
-  { time: '09:42:05', content: '设备DEV20230003数据异常', level: 'info' },
-  { time: '09:30:56', content: '设备DEV20230015电量低', level: 'warning' }
-])
+const realtimeAlerts = ref([])
+
+// 加载状态
+const loading = ref({
+  overview: false,
+  deviceStatus: false,
+  tenantType: false,
+  deviceGeo: false,
+  deviceGrowth: false,
+  alertLevel: false,
+  realtimeAlerts: false,
+  deviceType: false
+})
 
 // 格式化日期时间
 function formatDateTime(date) {
@@ -231,17 +257,24 @@ function formatDateTime(date) {
   return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds} ${weekDay}`
 }
 
-// 更新时间
+// 更新时间函数，不再使用定时器，只更新一次
 function updateTime() {
   currentTime.value = formatDateTime(new Date())
 }
 
 // 初始化设备状态分布图表
-function initDeviceStatusChart() {
-  const chartDom = deviceStatusChart.value
-  if (!chartDom) return null
+function initDeviceStatusChart(data) {
+  if (!deviceStatusChart.value) return null
   
-  const myChart = echarts.init(chartDom)
+  // 确保容器可见
+  if (deviceStatusChart.value.offsetHeight === 0 || deviceStatusChart.value.offsetWidth === 0) {
+    console.warn('设备状态图表容器尺寸为0，无法初始化图表')
+    // 延迟尝试初始化
+    setTimeout(() => loadDeviceStatusDistribution(), 500)
+    return null
+  }
+  
+  const myChart = echarts.init(deviceStatusChart.value)
   const option = {
     tooltip: {
       trigger: 'item',
@@ -253,7 +286,7 @@ function initDeviceStatusChart() {
       textStyle: {
         color: '#fff'
       },
-      data: ['在线', '离线', '故障', '维护中']
+      data: data.map(item => item.name)
     },
     series: [
       {
@@ -279,12 +312,7 @@ function initDeviceStatusChart() {
         labelLine: {
           show: false
         },
-        data: [
-          { value: 4752, name: '在线', itemStyle: { color: '#67C23A' } },
-          { value: 320, name: '离线', itemStyle: { color: '#909399' } },
-          { value: 145, name: '故障', itemStyle: { color: '#F56C6C' } },
-          { value: 66, name: '维护中', itemStyle: { color: '#E6A23C' } }
-        ]
+        data: data
       }
     ]
   }
@@ -294,7 +322,7 @@ function initDeviceStatusChart() {
 }
 
 // 初始化租户类型分布图表
-function initTenantTypeChart() {
+function initTenantTypeChart(data) {
   const chartDom = tenantTypeChart.value
   if (!chartDom) return null
   
@@ -310,7 +338,7 @@ function initTenantTypeChart() {
       textStyle: {
         color: '#fff'
       },
-      data: ['学校', '小区', '驿站', '其他']
+      data: data.map(item => item.name)
     },
     series: [
       {
@@ -318,12 +346,7 @@ function initTenantTypeChart() {
         type: 'pie',
         radius: '60%',
         center: ['50%', '45%'],
-        data: [
-          { value: 42, name: '学校', itemStyle: { color: '#4ECA8A' } },
-          { value: 28, name: '小区', itemStyle: { color: '#409EFF' } },
-          { value: 15, name: '驿站', itemStyle: { color: '#E6A23C' } },
-          { value: 4, name: '其他', itemStyle: { color: '#909399' } }
-        ],
+        data: data,
         emphasis: {
           itemStyle: {
             shadowBlur: 10,
@@ -344,7 +367,7 @@ function initTenantTypeChart() {
 }
 
 // 初始化中国地图
-function initMapChart() {
+function initMapChart(deviceData, center = [104.5, 38]) {
   const chartDom = mapChart.value
   if (!chartDom) return null
   
@@ -352,20 +375,6 @@ function initMapChart() {
   
   // 注册中国地图
   registerMap('china', chinaJson)
-  
-  // 模拟设备分布数据
-  const deviceData = [
-    { name: '北京', value: 156, coordinate: [116.405285, 39.904989] },
-    { name: '上海', value: 138, coordinate: [121.472644, 31.231706] },
-    { name: '广州', value: 120, coordinate: [113.280637, 23.125178] },
-    { name: '深圳', value: 108, coordinate: [114.085947, 22.547] },
-    { name: '杭州', value: 95, coordinate: [120.153576, 30.287459] },
-    { name: '南京', value: 87, coordinate: [118.767413, 32.041544] },
-    { name: '武汉', value: 82, coordinate: [114.298572, 30.584355] },
-    { name: '成都', value: 78, coordinate: [104.065735, 30.659462] },
-    { name: '西安', value: 72, coordinate: [108.948024, 34.263161] },
-    { name: '重庆', value: 68, coordinate: [106.504962, 29.533155] }
-  ]
   
   // 创建连接线数据
   const links = generateLinks(deviceData)
@@ -393,7 +402,7 @@ function initMapChart() {
     geo: {
       map: 'china',
       roam: true, // 允许缩放和平移
-      center: [104.5, 38], // 地图中心点
+      center: center, // 地图中心点
       zoom: 1.2, // 缩放级别
       scaleLimit: {
         min: 1,
@@ -475,7 +484,7 @@ function initMapChart() {
         coordinateSystem: 'geo',
         data: [{
           name: '数据中心',
-          value: [104.5, 38, 200] // 放在地图中心位置
+          value: [center[0], center[1], 200] // 放在地图中心位置
         }],
         symbolSize: 25,
         showEffectOn: 'render',
@@ -527,7 +536,7 @@ function initMapChart() {
           return {
             coords: [
               deviceData[sourceIndex].coordinate,
-              targetIndex >= 0 ? deviceData[targetIndex].coordinate : [104.5, 38]
+              targetIndex >= 0 ? deviceData[targetIndex].coordinate : center
             ]
           };
         }).filter(item => item !== null)
@@ -551,7 +560,7 @@ function initMapChart() {
           return {
             coords: [
               deviceData[sourceIndex].coordinate,
-              targetIndex >= 0 ? deviceData[targetIndex].coordinate : [104.5, 38]
+              targetIndex >= 0 ? deviceData[targetIndex].coordinate : center
             ]
           };
         }).filter(item => item !== null)
@@ -612,34 +621,11 @@ function generateLinks(deviceData) {
 }
 
 // 初始化设备增长趋势图表
-function initDeviceGrowthChart() {
+function initDeviceGrowthChart(data) {
   const chartDom = deviceGrowthChart.value
   if (!chartDom) return null
   
   const myChart = echarts.init(chartDom)
-  
-  // 生成最近30天的日期
-  const dates = []
-  const today = new Date()
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date()
-    date.setDate(today.getDate() - i)
-    dates.push(`${date.getMonth() + 1}/${date.getDate()}`)
-  }
-  
-  // 模拟数据
-  const deviceGrowthData = [4900, 4920, 4950, 4970, 5000, 5020, 5040, 5060, 5080, 5090, 
-    5100, 5110, 5120, 5130, 5140, 5150, 5160, 5170, 5180, 5190, 
-    5200, 5210, 5220, 5230, 5240, 5250, 5260, 5270, 5280, 5283]
-  
-  const newDeviceData = []
-  for (let i = 0; i < deviceGrowthData.length; i++) {
-    if (i === 0) {
-      newDeviceData.push(deviceGrowthData[i])
-    } else {
-      newDeviceData.push(deviceGrowthData[i] - deviceGrowthData[i-1])
-    }
-  }
   
   const option = {
     tooltip: {
@@ -663,7 +649,7 @@ function initDeviceGrowthChart() {
     },
     xAxis: {
       type: 'category',
-      data: dates,
+      data: data.dates,
       axisLine: {
         lineStyle: {
           color: '#5bd4ff'
@@ -719,7 +705,7 @@ function initDeviceGrowthChart() {
         name: '设备总量',
         type: 'line',
         smooth: true,
-        data: deviceGrowthData,
+        data: data.deviceGrowthData,
         itemStyle: {
           color: '#409EFF'
         },
@@ -731,7 +717,7 @@ function initDeviceGrowthChart() {
         name: '新增设备',
         type: 'bar',
         yAxisIndex: 1,
-        data: newDeviceData,
+        data: data.newDeviceData,
         itemStyle: {
           color: '#4ECA8A'
         }
@@ -744,7 +730,7 @@ function initDeviceGrowthChart() {
 }
 
 // 初始化告警级别分布图表
-function initAlertLevelChart() {
+function initAlertLevelChart(data) {
   const chartDom = alertLevelChart.value
   if (!chartDom) return null
   
@@ -760,7 +746,7 @@ function initAlertLevelChart() {
       textStyle: {
         color: '#fff'
       },
-      data: ['紧急', '重要', '次要', '提示']
+      data: data.map(item => item.name)
     },
     series: [
       {
@@ -786,12 +772,7 @@ function initAlertLevelChart() {
         labelLine: {
           show: false
         },
-        data: [
-          { value: 45, name: '紧急', itemStyle: { color: '#F56C6C' } },
-          { value: 78, name: '重要', itemStyle: { color: '#E6A23C' } },
-          { value: 125, name: '次要', itemStyle: { color: '#4ECA8A' } },
-          { value: 108, name: '提示', itemStyle: { color: '#909399' } }
-        ]
+        data: data
       }
     ]
   }
@@ -800,7 +781,59 @@ function initAlertLevelChart() {
   return myChart
 }
 
-// 添加模拟告警数据
+// 初始化设备类型分布图表
+function initDeviceTypeChart(data) {
+  const chartDom = deviceTypeChart.value
+  if (!chartDom) return null
+  
+  const myChart = echarts.init(chartDom)
+  const option = {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{a} <br/>{b}: {c} ({d}%)'
+    },
+    legend: {
+      orient: 'horizontal',
+      bottom: 'bottom',
+      textStyle: {
+        color: '#fff'
+      },
+      data: data.map(item => item.name)
+    },
+    series: [
+      {
+        name: '设备类型',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 10,
+          borderColor: '#061d33',
+          borderWidth: 2
+        },
+        label: {
+          show: false
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: '18',
+            fontWeight: 'bold'
+          }
+        },
+        labelLine: {
+          show: false
+        },
+        data: data
+      }
+    ]
+  }
+  
+  myChart.setOption(option)
+  return myChart
+}
+
+// 添加随机告警数据
 function addRandomAlert() {
   const deviceIds = ['DEV20230001', 'DEV20230002', 'DEV20230003', 'DEV20230004', 'DEV20230005']
   const alertTypes = [
@@ -834,30 +867,250 @@ function addRandomAlert() {
   }
 }
 
+// 加载数据大屏概览数据
+async function loadDataScreenOverview() {
+  try {
+    loading.value.overview = true
+    const res = await getDataScreenOverview()
+    if (res && res.data) {
+      deviceTotal.value = res.data.deviceTotal || 0
+      onlineDeviceCount.value = res.data.onlineDeviceCount || 0
+      alertCount.value = res.data.alertCount || 0
+      tenantCount.value = res.data.tenantCount || 0
+    }
+  } catch (error) {
+    console.error('加载数据大屏概览数据失败:', error)
+    // 移除重试逻辑
+  } finally {
+    loading.value.overview = false
+  }
+}
+
+// 加载设备状态分布数据
+async function loadDeviceStatusDistribution() {
+  try {
+    loading.value.deviceStatus = true
+    const res = await getDeviceStatusDistribution()
+    if (res && res.data) {
+      const myChart = initDeviceStatusChart(res.data)
+      updateChartInstance(0, myChart)
+    }
+  } catch (error) {
+    console.error('加载设备状态分布数据失败:', error)
+    // 移除重试逻辑
+  } finally {
+    loading.value.deviceStatus = false
+  }
+}
+
+// 加载租户类型分布数据
+async function loadTenantTypeDistribution() {
+  try {
+    loading.value.tenantType = true
+    const res = await getTenantTypeDistribution()
+    if (res && res.data) {
+      const myChart = initTenantTypeChart(res.data)
+      updateChartInstance(1, myChart)
+    }
+  } catch (error) {
+    console.error('加载租户类型分布数据失败:', error)
+    // 移除重试逻辑
+  } finally {
+    loading.value.tenantType = false
+  }
+}
+
+// 加载设备地理分布数据
+async function loadDeviceGeoDistribution() {
+  try {
+    loading.value.deviceGeo = true
+    const res = await getDeviceGeoDistribution()
+    if (res && res.data) {
+      const myChart = initMapChart(res.data.devices, res.data.center)
+      updateChartInstance(2, myChart)
+    }
+  } catch (error) {
+    console.error('加载设备地理分布数据失败:', error)
+    // 移除重试逻辑
+  } finally {
+    loading.value.deviceGeo = false
+  }
+}
+
+// 加载设备增长趋势数据
+async function loadDeviceGrowthTrend() {
+  try {
+    loading.value.deviceGrowth = true
+    const res = await getDeviceGrowthTrend()
+    if (res && res.data) {
+      const myChart = initDeviceGrowthChart(res.data)
+      updateChartInstance(3, myChart)
+    }
+  } catch (error) {
+    console.error('加载设备增长趋势数据失败:', error)
+    // 移除重试逻辑
+  } finally {
+    loading.value.deviceGrowth = false
+  }
+}
+
+// 加载告警级别分布数据
+async function loadAlertLevelDistribution() {
+  try {
+    loading.value.alertLevel = true
+    const res = await getAlertLevelDistribution()
+    if (res && res.data) {
+      const myChart = initAlertLevelChart(res.data)
+      updateChartInstance(4, myChart)
+    }
+  } catch (error) {
+    console.error('加载告警级别分布数据失败:', error)
+    // 移除重试逻辑
+  } finally {
+    loading.value.alertLevel = false
+  }
+}
+
+// 加载实时告警数据
+async function loadRealtimeAlerts() {
+  try {
+    loading.value.realtimeAlerts = true
+    const res = await getRealtimeAlerts()
+    if (res && res.data) {
+      realtimeAlerts.value = res.data
+    }
+  } catch (error) {
+    console.error('加载实时告警数据失败:', error)
+    // 移除重试逻辑
+  } finally {
+    loading.value.realtimeAlerts = false
+  }
+}
+
+// 加载设备类型分布数据
+async function loadDeviceTypeDistribution() {
+  try {
+    loading.value.deviceType = true
+    const res = await getDeviceTypeDistribution()
+    if (res && res.data) {
+      const myChart = initDeviceTypeChart(res.data)
+      updateChartInstance(5, myChart)
+    }
+  } catch (error) {
+    console.error('加载设备类型分布数据失败:', error)
+    // 移除重试逻辑
+  } finally {
+    loading.value.deviceType = false
+  }
+}
+
+// 更新图表实例
+function updateChartInstance(index, chart) {
+  if (chart) {
+    // 如果已有实例，先销毁
+    if (chartInstances.value[index]) {
+      chartInstances.value[index].dispose()
+    }
+    chartInstances.value[index] = chart
+    
+    // 添加防止图表消失的保护措施
+    // 确保图表容器有正确的尺寸
+    nextTick(() => {
+      if (chart && !chart.isDisposed()) {
+        chart.resize()
+      }
+    })
+  }
+}
+
 // 调整所有图表大小
 function resizeAllCharts() {
   chartInstances.value.forEach(chart => {
-    if (chart) {
-      chart.resize()
+    if (chart && !chart.isDisposed()) {
+      // 添加检查确保容器可见且有尺寸
+      const dom = chart.getDom()
+      if (dom && dom.offsetHeight > 0 && dom.offsetWidth > 0) {
+        chart.resize()
+      }
     }
   })
 }
 
+// 添加一个函数来检查和恢复丢失的图表
+function checkAndRestoreCharts() {
+  // 检查设备状态图表
+  if (chartInstances.value[0] && chartInstances.value[0].isDisposed()) {
+    console.log('检测到设备状态图表已被销毁，尝试重新加载')
+    loadDeviceStatusDistribution()
+  }
+  
+  // 检查租户类型图表
+  if (chartInstances.value[1] && chartInstances.value[1].isDisposed()) {
+    console.log('检测到租户类型图表已被销毁，尝试重新加载')
+    loadTenantTypeDistribution()
+  }
+  
+  // 检查地图图表
+  if (chartInstances.value[2] && chartInstances.value[2].isDisposed()) {
+    console.log('检测到地图图表已被销毁，尝试重新加载')
+    loadDeviceGeoDistribution()
+  }
+  
+  // 检查设备增长趋势图表
+  if (chartInstances.value[3] && chartInstances.value[3].isDisposed()) {
+    console.log('检测到设备增长趋势图表已被销毁，尝试重新加载')
+    loadDeviceGrowthTrend()
+  }
+  
+  // 检查告警级别图表
+  if (chartInstances.value[4] && chartInstances.value[4].isDisposed()) {
+    console.log('检测到告警级别图表已被销毁，尝试重新加载')
+    loadAlertLevelDistribution()
+  }
+  
+  // 检查设备类型图表
+  if (chartInstances.value[5] && chartInstances.value[5].isDisposed()) {
+    console.log('检测到设备类型图表已被销毁，尝试重新加载')
+    loadDeviceTypeDistribution()
+  }
+}
+
+// 处理页面可见性变化的函数
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    // 页面变为可见时检查图表状态
+    nextTick(() => {
+      checkAndRestoreCharts()
+    })
+  }
+}
+
+// 添加窗口大小变化后的延迟重绘
+let resizeTimeout = null
+window.addEventListener('resize', () => {
+  if (resizeTimeout) clearTimeout(resizeTimeout)
+  resizeTimeout = setTimeout(() => {
+    checkAndRestoreCharts()
+  }, 200)
+})
+
 onMounted(() => {
-  // 更新时间
+  // 更新时间，只更新一次
   updateTime()
-  timer = setInterval(updateTime, 1000)
   
-  // 初始化图表
-  const charts = []
-  charts.push(initDeviceStatusChart())
-  charts.push(initTenantTypeChart())
-  charts.push(initMapChart())
-  charts.push(initDeviceGrowthChart())
-  charts.push(initAlertLevelChart())
+  // 初始化图表容器数组
+  chartInstances.value = Array(6).fill(null)
   
-  // 保存图表实例
-  chartInstances.value = charts
+  // 首次加载数据 - 添加延迟确保DOM已渲染
+  nextTick(() => {
+    loadAllData()
+    
+    // 添加一个延迟检查，确保图表正确渲染
+    setTimeout(() => {
+      checkAndRestoreCharts()
+      resizeAllCharts()
+    }, 1000)
+  })
   
   // 监听窗口大小变化
   window.addEventListener('resize', resizeAllCharts)
@@ -867,31 +1120,43 @@ onMounted(() => {
   document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
   document.addEventListener('msfullscreenchange', handleFullscreenChange)
   
-  // 每隔一段时间添加随机告警
-  setInterval(addRandomAlert, 8000)
+  // 添加页面可见性监听，当页面从隐藏变为可见时重新加载数据
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
+// 在组件卸载时清理资源
 onBeforeUnmount(() => {
-  // 清除定时器
-  if (timer) {
-    clearInterval(timer)
-  }
+  // 移除定时器清理代码
   
-  // 移除窗口大小变化监听
+  // 移除事件监听
   window.removeEventListener('resize', resizeAllCharts)
-  
-  // 移除全屏变化事件监听
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
   document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   
   // 销毁所有图表实例
   chartInstances.value.forEach(chart => {
-    if (chart) {
-      chart.dispose()
-    }
+    if (chart) chart.dispose()
   })
 })
+
+// 添加统一加载所有数据的函数
+function loadAllData() {
+  // 使用Promise.all并行加载所有数据，提高效率
+  Promise.all([
+    loadDataScreenOverview(),
+    loadDeviceStatusDistribution(),
+    loadTenantTypeDistribution(),
+    loadDeviceGeoDistribution(),
+    loadDeviceGrowthTrend(),
+    loadAlertLevelDistribution(),
+    loadRealtimeAlerts(),
+    loadDeviceTypeDistribution()
+  ]).catch(error => {
+    console.error('加载数据大屏数据失败:', error)
+  })
+}
 </script>
 
 <style scoped>

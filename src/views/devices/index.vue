@@ -44,11 +44,6 @@
           </template>
         </el-table-column>
         <el-table-column prop="updatedAt" label="最后活跃时间" width="180" />
-        <el-table-column label="位置" min-width="150" show-overflow-tooltip>
-          <template #default="scope">
-            <span>{{ scope.row.location || '-' }}</span>
-          </template>
-        </el-table-column>
         <el-table-column label="坐标" min-width="180">
           <template #default="scope">
             <span v-if="scope.row.latitude && scope.row.longitude">

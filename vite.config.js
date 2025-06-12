@@ -18,19 +18,19 @@ export default defineConfig({
     proxy: {
       // 将所有 /api 开头的请求代理到后端服务
       '/api': {
-        target: 'http://localhost:8086',
+        target: 'http://121.43.133.175',
         changeOrigin: true,
         secure: false
       },
       // 将所有 /iot 开头的请求代理到后端服务
       '/iot': {
-        target: 'http://localhost:8086',
+        target: 'http://121.43.133.175',
         changeOrigin: true,
         secure: false
       },
       // 将所有 /admin 开头的请求代理到后端服务
       '/admin': {
-        target: 'http://localhost:8086',
+        target: 'http://121.43.133.175',
         changeOrigin: true,
         secure: false
       }

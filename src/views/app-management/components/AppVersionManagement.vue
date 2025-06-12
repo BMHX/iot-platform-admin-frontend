@@ -3,80 +3,45 @@
     <!-- 顶部按钮 -->
     <div class="action-container">
       <el-button type="primary" @click="showAddVersionDialog('android')">发布Android版本</el-button>
-      <el-button type="primary" @click="showAddVersionDialog('ios')">发布iOS版本</el-button>
     </div>
 
-    <!-- 平台切换标签 -->
-    <el-tabs v-model="activePlatform" type="card" class="platform-tabs">
-      <el-tab-pane label="Android" name="android">
-        <!-- Android版本列表 -->
-        <el-table :data="androidVersions" border style="width: 100%" v-loading="loading.android">
-          <el-table-column prop="versionCode" label="版本号" width="100" />
-          <el-table-column prop="versionName" label="版本名称" width="120" />
-          <el-table-column prop="releaseTime" label="发布时间" width="180" />
-          <el-table-column label="强制更新" width="120">
-            <template #default="scope">
-              <el-tag :type="scope.row.forceUpdate ? 'danger' : 'info'">
-                {{ scope.row.forceUpdate ? '是' : '否' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="downloadUrl" label="下载链接" width="250" show-overflow-tooltip />
-          <el-table-column prop="description" label="更新说明" show-overflow-tooltip />
-          <el-table-column label="操作" width="200">
-            <template #default="scope">
-              <el-button
-                size="small"
-                type="primary"
-                @click="handleEdit(scope.row, 'android')"
-              >编辑</el-button>
-              <el-button
-                size="small"
-                type="danger"
-                @click="handleDelete(scope.row, 'android')"
-              >删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
-      
-      <el-tab-pane label="iOS" name="ios">
-        <!-- iOS版本列表 -->
-        <el-table :data="iosVersions" border style="width: 100%" v-loading="loading.ios">
-          <el-table-column prop="versionCode" label="版本号" width="100" />
-          <el-table-column prop="versionName" label="版本名称" width="120" />
-          <el-table-column prop="releaseTime" label="发布时间" width="180" />
-          <el-table-column label="强制更新" width="120">
-            <template #default="scope">
-              <el-tag :type="scope.row.forceUpdate ? 'danger' : 'info'">
-                {{ scope.row.forceUpdate ? '是' : '否' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="downloadUrl" label="下载链接" width="250" show-overflow-tooltip />
-          <el-table-column prop="description" label="更新说明" show-overflow-tooltip />
-          <el-table-column label="操作" width="200">
-            <template #default="scope">
-              <el-button
-                size="small"
-                type="primary"
-                @click="handleEdit(scope.row, 'ios')"
-              >编辑</el-button>
-              <el-button
-                size="small"
-                type="danger"
-                @click="handleDelete(scope.row, 'ios')"
-              >删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
-    </el-tabs>
+    <!-- 平台内容 -->
+    <div class="platform-content">
+      <!-- Android版本列表 -->
+      <el-table :data="androidVersions" border style="width: 100%" v-loading="loading.android">
+        <el-table-column prop="versionCode" label="版本号" width="100" />
+        <el-table-column prop="versionName" label="版本名称" width="120" />
+        <el-table-column prop="releaseTime" label="发布时间" width="180" />
+        <el-table-column label="强制更新" width="120">
+          <template #default="scope">
+            <el-tag :type="scope.row.forceUpdate ? 'danger' : 'info'">
+              {{ scope.row.forceUpdate ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="downloadUrl" label="下载链接" width="250" show-overflow-tooltip />
+        <el-table-column prop="description" label="更新说明" show-overflow-tooltip />
+        <el-table-column label="操作" width="200">
+          <template #default="scope">
+            <el-button
+              size="small"
+              type="primary"
+              @click="handleEdit(scope.row, 'android')"
+            >编辑</el-button>
+            <el-button
+              size="small"
+              type="danger"
+              @click="handleDelete(scope.row, 'android')"
+            >删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <!-- 添加/编辑版本对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogType === 'add' ? `发布${platformText}版本` : `编辑${platformText}版本`"
+      :title="dialogType === 'add' ? `发布Android版本` : `编辑Android版本`"
       width="600px"
     >
       <el-form
@@ -92,7 +57,7 @@
           <el-input v-model="versionForm.versionName" placeholder="如：正式版V1" />
         </el-form-item>
         <el-form-item label="下载链接" prop="downloadUrl">
-          <el-input v-model="versionForm.downloadUrl" placeholder="APK下载链接或App Store链接" />
+          <el-input v-model="versionForm.downloadUrl" placeholder="APK下载链接" />
         </el-form-item>
         <el-form-item label="更新策略" prop="forceUpdate">
           <el-radio-group v-model="versionForm.forceUpdate">
@@ -114,7 +79,7 @@
             placeholder="请输入版本更新说明"
           />
         </el-form-item>
-        <el-form-item label="APK文件" prop="apkFile" v-if="currentPlatform === 'android' && dialogType === 'add'">
+        <el-form-item label="APK文件" prop="apkFile" v-if="dialogType === 'add'">
           <el-upload
             class="upload-demo"
             action="#"
@@ -144,30 +109,22 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-
-// 平台相关
-const activePlatform = ref('android')
-const loading = reactive({
-  android: false,
-  ios: false
-})
 
 // 版本列表
 const androidVersions = ref([])
-const iosVersions = ref([])
+
+// 加载状态
+const loading = reactive({
+  android: false
+})
 
 // 对话框
 const dialogVisible = ref(false)
 const dialogType = ref('add') // add 或 edit
 const currentPlatform = ref('android')
 const versionFormRef = ref(null)
-
-// 计算属性
-const platformText = computed(() => {
-  return currentPlatform.value === 'android' ? 'Android' : 'iOS'
-})
 
 // 灰度发布标记
 const grayscaleMarks = {
@@ -230,9 +187,8 @@ const showAddVersionDialog = (platform) => {
 }
 
 // 编辑版本
-const handleEdit = (row, platform) => {
+const handleEdit = (row) => {
   dialogType.value = 'edit'
-  currentPlatform.value = platform
   versionForm.value = {
     ...row,
     id: row.id // 保留ID用于更新
@@ -241,18 +197,14 @@ const handleEdit = (row, platform) => {
 }
 
 // 删除版本
-const handleDelete = (row, platform) => {
-  ElMessageBox.confirm(`确定要删除${platform === 'android' ? 'Android' : 'iOS'}版本 ${row.versionName} 吗？`, '提示', {
+const handleDelete = (row) => {
+  ElMessageBox.confirm(`确定要删除Android版本 ${row.versionName} 吗？`, '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
     // 这里应该调用API删除数据
-    if (platform === 'android') {
-      androidVersions.value = androidVersions.value.filter(item => item.id !== row.id)
-    } else {
-      iosVersions.value = iosVersions.value.filter(item => item.id !== row.id)
-    }
+    androidVersions.value = androidVersions.value.filter(item => item.id !== row.id)
     ElMessage.success('删除成功')
   }).catch(() => {})
 }
@@ -275,12 +227,7 @@ const submitVersionForm = () => {
           // 省略实际文件上传处理
         }
         
-        if (currentPlatform.value === 'android') {
-          androidVersions.value.unshift(newVersion)
-        } else {
-          iosVersions.value.unshift(newVersion)
-        }
-        
+        androidVersions.value.unshift(newVersion)
         ElMessage.success('版本发布成功')
       } else {
         // 编辑版本
@@ -289,16 +236,9 @@ const submitVersionForm = () => {
           // 可能需要更新其他字段
         }
         
-        if (currentPlatform.value === 'android') {
-          const index = androidVersions.value.findIndex(item => item.id === updateVersion.id)
-          if (index !== -1) {
-            androidVersions.value[index] = updateVersion
-          }
-        } else {
-          const index = iosVersions.value.findIndex(item => item.id === updateVersion.id)
-          if (index !== -1) {
-            iosVersions.value[index] = updateVersion
-          }
+        const index = androidVersions.value.findIndex(item => item.id === updateVersion.id)
+        if (index !== -1) {
+          androidVersions.value[index] = updateVersion
         }
         
         ElMessage.success('版本更新成功')
@@ -343,37 +283,6 @@ const fetchVersions = () => {
     ]
     loading.android = false
   }, 500)
-  
-  // 获取iOS版本
-  loading.ios = true
-  // 这里应该调用API获取数据
-  // 模拟数据
-  setTimeout(() => {
-    iosVersions.value = [
-      {
-        id: 1,
-        versionCode: '1.2.0',
-        versionName: '正式版V1.2',
-        releaseTime: '2023-05-22 09:30:00',
-        forceUpdate: true,
-        downloadUrl: 'https://apps.apple.com/app/id123456789',
-        minSupportVersion: '1.0.0',
-        description: '1. 修复了已知问题\n2. 优化了用户界面\n3. 提升了性能'
-      },
-      {
-        id: 2,
-        versionCode: '1.1.0',
-        versionName: '正式版V1.1',
-        releaseTime: '2023-04-18 16:40:00',
-        forceUpdate: false,
-        grayReleaseRatio: 60,
-        downloadUrl: 'https://apps.apple.com/app/id123456789',
-        minSupportVersion: '1.0.0',
-        description: '1. 修复了闪退问题\n2. 新增了消息推送功能'
-      }
-    ]
-    loading.ios = false
-  }, 500)
 }
 
 onMounted(() => {
@@ -392,7 +301,7 @@ onMounted(() => {
   gap: 10px;
 }
 
-.platform-tabs {
+.platform-content {
   margin-top: 20px;
 }
 

@@ -29,21 +29,6 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
-          <el-link type="primary" class="forgot-password" href="#">忘记密码?</el-link>
-        </el-form-item>
-
-        <!-- 角色选择 -->
-        <el-form-item label="选择测试账号">
-          <el-radio-group v-model="selectedRole" @change="handleRoleChange">
-            <el-radio label="admin">管理员</el-radio>
-            <el-radio label="operator">运营人员</el-radio>
-            <el-radio label="tenant">租户</el-radio>
-            <el-radio label="user">普通用户</el-radio>
-          </el-radio-group>
-        </el-form-item>
-
-        <el-form-item>
           <el-button
             type="primary"
             :loading="loading"
@@ -52,26 +37,6 @@
           >登录</el-button>
         </el-form-item>
       </el-form>
-
-      <!-- 测试账号提示 -->
-      <div class="test-account-tips">
-        <h3>测试账号</h3>
-        <el-divider />
-        <ul>
-          <li>
-            <strong>管理员：</strong> 用户名 admin，密码 123456
-          </li>
-          <li>
-            <strong>普通用户：</strong> 用户名 user，密码 123456
-          </li>
-          <li>
-            <strong>租户账号：</strong> 用户名 tenant，密码 123456
-          </li>
-          <li>
-            <strong>运营人员：</strong> 用户名 operator，密码 123456
-          </li>
-        </ul>
-      </div>
     </div>
   </div>
 </template>
@@ -91,18 +56,8 @@ const loading = ref(false)
 // 登录表单
 const loginForm = reactive({
   username: 'admin',
-  password: '123456',
-  remember: false
+  password: '123456'
 })
-
-// 选择的角色
-const selectedRole = ref('admin')
-
-// 角色变更
-const handleRoleChange = (role) => {
-  loginForm.username = role
-  loginForm.password = '123456'
-}
 
 // 表单验证规则
 const loginRules = {
@@ -272,38 +227,5 @@ const handleLogin = () => {
 
 .login-button {
   width: 100%;
-}
-
-.forgot-password {
-  float: right;
-}
-
-.test-account-tips {
-  margin-top: 20px;
-  padding: 10px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-}
-
-.test-account-tips h3 {
-  font-size: 18px;
-  color: #303133;
-  margin-bottom: 10px;
-}
-
-.test-account-tips ul {
-  list-style: none;
-  padding-left: 0;
-}
-
-.test-account-tips li {
-  font-size: 14px;
-  color: #909399;
-  margin-bottom: 5px;
-}
-
-.test-account-tips strong {
-  font-weight: bold;
 }
 </style> 
